@@ -13,6 +13,9 @@ Proof-of-concept N-API addon exposing basic printing APIs on Windows (Winspool).
 - Native code: present and builds with `node-gyp` on Windows, but prebuilt binaries are not published yet.
 - Integration/native tests: gated and must be run on Windows with a configured test printer (set `RUN_INTEGRATION=1`).
 
+## Supported Node versions
+This package supports Node.js runtimes 18.x, 20.x and 22.x only. Node 14 has been removed due to End-of-Life and modern tooling requirements.
+
 ## Quick start (development on Windows)
 ```powershell
 npm ci
@@ -47,6 +50,7 @@ npx prebuild --backend=node-gyp --strip
 
 ## CI recommendations
 - Add a GitHub Actions job with a Windows matrix for Node versions you intend to support (e.g., 18, 20, 22) and architectures (x64, arm64 if required).
+	- Note: this repository supports Node 18/20/22 only; do not include Node 14 in CI or prebuild matrices.
 - For each runner: build prebuilds, run unit tests, and attach prebuild artifacts to the Release.
 - Optionally run integration tests on a dedicated Windows runner with a test printer (set `RUN_INTEGRATION=1` only when a test printer is available).
 

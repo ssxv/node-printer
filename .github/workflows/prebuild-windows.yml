@@ -16,10 +16,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Use runtime strings so setup-node resolves to a concrete runtime.
-        # We'll still compute the exact runtime version with `node -v` when
-        # calling prebuild so node-abi can detect the correct target/abi.
-        node: ['14.x', '16.x', '18.x', '20.x']
+        node: ['18.x', '20.x', '22.x']
 
     steps:
       - name: Checkout repository
@@ -44,7 +41,6 @@ jobs:
       - name: Create prebuild artifact (x64)
         env:
           npm_config_disturl: https://nodejs.org/dist
-        # Use PowerShell-safe commands on windows-latest and prefer the locally installed prebuild (no network fetch)
         run: |
           if (!(Test-Path prebuilds)) { New-Item -ItemType Directory -Path prebuilds | Out-Null }
           # Get the concrete Node runtime version (e.g. v20.19.5) and pass it

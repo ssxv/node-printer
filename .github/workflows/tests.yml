@@ -1,0 +1,62 @@
+name: CI Tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  unit:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        node: ['18.x', '20.x', '22.x']
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Install deps
+        run: npm ci
+      - name: Run unit tests
+        run: npm test
+
+  windows-integration:
+    if: runner.os == 'Windows' || matrix.os == 'windows-latest'
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        node: ['18.x', '20.x', '22.x']
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Install build tools
+        run: |
+          choco install visualstudio2019buildtools -y || echo 'vc buildtools may already be present'
+      - name: Install deps
+        run: npm ci
+      - name: Build
+        run: npm run build
+      - name: Run integration tests (real printers required)
+        id: integration
+        run: |
+          # Integration tests expect a configured test/virtual printer. Set RUN_INTEGRATION=1 only when available.
+          if ($env:RUN_INTEGRATION -eq '1') {
+            npm test
+          } else {
+            echo 'Skipping integration tests; set RUN_INTEGRATION=1 to run.'
+          }
+      - name: Upload test logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-logs
+          path: |
+            ./**/npm-debug.log
+            ./test-results || true
