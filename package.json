@@ -6,7 +6,7 @@
   "scripts": {
     "install": "prebuild-install || node-gyp rebuild",
     "build": "node-gyp rebuild",
-    "test": "tap test/*.test.js"
+    "test": "tap --disable-coverage test/*.test.js"
   },
   "keywords": [
     "printer",
