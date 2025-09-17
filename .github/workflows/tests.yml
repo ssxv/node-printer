@@ -6,6 +6,7 @@ on:
   pull_request:
     branches: [ main ]
 
+
 jobs:
   unit:
     runs-on: ${{ matrix.os }}
@@ -19,8 +20,15 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node }}
-      - name: Install deps
+      - name: Install deps (Windows)
+        if: runner.os == 'Windows'
         run: npm ci
+
+      - name: Install deps (non-Windows)
+        if: runner.os != 'Windows'
+        # Prevent running install scripts (prebuild-install / node-gyp) on non-Windows runners
+        # Unit tests use JS mocks so the native addon is not required for these runs.
+        run: npm ci --ignore-scripts
       - name: Run unit tests
         run: npm test
 
@@ -59,3 +67,37 @@ jobs:
           path: |
             ./**/npm-debug.log
             ./test-results || true
+
+  prebuild:
+    name: Prebuild Windows x64
+    needs: unit
+    runs-on: windows-latest
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/') || github.event_name == 'release'
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['18.x', '20.x', '22.x']
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: 'npm'
+      - name: Install dependencies
+        run: npm ci
+      - name: Build native addon
+        run: npm run build
+      - name: Create prebuild artifact (x64)
+        env:
+          npm_config_disturl: https://nodejs.org/dist
+        run: |
+          if (!(Test-Path prebuilds)) { New-Item -ItemType Directory -Path prebuilds | Out-Null }
+          $nodever = (node -v).Trim()
+          Write-Host "Detected node runtime: $nodever"
+          npx --no-install prebuild --strip --target $nodever --arch=x64 --platform=win32 --runtime=node --out prebuilds
+      - name: Upload prebuild artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: prebuild-win-x64-node-${{ matrix.node }}
+          path: prebuilds/*
