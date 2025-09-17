@@ -16,7 +16,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node: [14, 16, 18, 20]
+        # Use runtime strings so setup-node resolves to a concrete runtime.
+        # We'll still compute the exact runtime version with `node -v` when
+        # calling prebuild so node-abi can detect the correct target/abi.
+        node: ['14.x', '16.x', '18.x', '20.x']
 
     steps:
       - name: Checkout repository
@@ -44,7 +47,11 @@ jobs:
         # Use PowerShell-safe commands on windows-latest and prefer the locally installed prebuild (no network fetch)
         run: |
           if (!(Test-Path prebuilds)) { New-Item -ItemType Directory -Path prebuilds | Out-Null }
-          npx --no-install prebuild --strip --target ${{ matrix.node }} --arch=x64 --platform=win32 --runtime=node --out prebuilds
+          # Get the concrete Node runtime version (e.g. v20.19.5) and pass it
+          # to prebuild --target so node-abi can resolve the proper target.
+          $nodever = (node -v).Trim()
+          Write-Host "Detected node runtime: $nodever"
+          npx --no-install prebuild --strip --target $nodever --arch=x64 --platform=win32 --runtime=node --out prebuilds
 
       - name: Upload prebuild artifact
         uses: actions/upload-artifact@v4
