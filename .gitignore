@@ -53,3 +53,4 @@ coverage/
 
 # npm package lock (optional - keep if you want reproducible installs)
 # package-lock.json
+.tap/

@@ -4,70 +4,72 @@ This small PoC demonstrates using `node-addon-api` to export a `getPrinters` fun
 
 Requirements (Windows):
 
-Build:
+# node-printer — Windows PoC (N-API)
 
+Proof-of-concept N-API addon exposing basic printing APIs on Windows (Winspool). This repository demonstrates using `node-addon-api` to build a small native addon and provides a JS wrapper with Promise and callback-compatible interfaces.
+
+## Current status
+- JS wrapper and unit tests: stable — unit tests are mock-driven and deterministic.
+- Native code: present and builds with `node-gyp` on Windows, but prebuilt binaries are not published yet.
+- Integration/native tests: gated and must be run on Windows with a configured test printer (set `RUN_INTEGRATION=1`).
+
+## Quick start (development on Windows)
 ```powershell
-npm install
-npm run build
+npm ci
+npm run build    # requires Visual Studio Build Tools + Python for node-gyp
+npm test         # runs unit tests; tests own mocking
 ```
 
-Notes:
-node-printer
-============
+## Testing and mocking
+- Unit tests explicitly own the mock binding. Tests that exercise the JS wrapper preload the mock into Node's `require` cache before requiring `../printer` so the wrapper picks up the mock without relying on environment variables.
+- Do not rely on `USE_MOCK` to control test behavior; that environment variable is no longer required.
+- Integration/native tests are gated with `RUN_INTEGRATION=1` and should only be executed on Windows runners that have a test or virtual printer configured.
 
-A modern Proof-of-Concept N-API-based Node.js addon that exposes printer functionality on Windows.
-
-This repository contains a Windows-only proof-of-concept (`node-printer`) that demonstrates:
-
-- Using `node-addon-api` to create an ABI-stable native addon.
-- Returning rich printer objects (names, options, jobs) from native code.
-- Non-blocking printing functions implemented with `Napi::AsyncWorker` that return Promises.
-
-Quick start
------------
-
-Build (Windows, requires Visual Studio Build Tools and Python for node-gyp):
-
+Example: run native integration tests locally (Windows with test printer):
 ```powershell
-npm install
-npm run build
+- When publishing, ensure `build/Release/node_printer.node` is built for your target environment or use prebuilds.
+
 ```
 
-Run smoke tests:
+## Prebuilds and publishing (recommended)
+To make installs seamless for Windows consumers, publish prebuilt binaries for each supported Node version and CPU architecture. Recommended flow:
 
+1. Build prebuilds in CI (use `prebuild` or `prebuild --backend=node-gyp`) for each target Node version/arch.
+2. Upload the generated artifacts to a GitHub Release (CI can automate this).
+3. Keep `install` as `prebuild-install || node-gyp rebuild` in `package.json` so installs prefer prebuilt binaries and fall back to source build.
+
+Local prebuild example (single target):
 ```powershell
-npm test
+npm ci
+npx prebuild --backend=node-gyp --strip
+# artifacts appear under ./prebuilds
 ```
 
-Usage
------
+## CI recommendations
+- Add a GitHub Actions job with a Windows matrix for Node versions you intend to support (e.g., 18, 20, 22) and architectures (x64, arm64 if required).
+- For each runner: build prebuilds, run unit tests, and attach prebuild artifacts to the Release.
+- Optionally run integration tests on a dedicated Windows runner with a test printer (set `RUN_INTEGRATION=1` only when a test printer is available).
 
-```js
-// when installed from npm
-const printer = require('@ssxv/node-printer');
-
-// Promise style
-await printer.printFile({ filename: 'test.pdf', printer: 'MyPrinter' });
-
-// Callback style
-printer.printDirect({ data: 'raw', printer: 'MyPrinter' }, (err, jobId) => {
-	if (err) console.error(err);
-	else console.log('job id', jobId);
-});
+## Packaging guidance
+- Avoid shipping an unqualified `build/Release/node_printer.node` inside `files` unless you intentionally want to publish that specific binary. Prefer publishing per-ABI prebuilds instead.
+- To restrict installs to Windows only (optional), add to `package.json`:
+```json
+"os": ["win32"]
 ```
 
-Publishing
-----------
-
-The repository is configured to publish a scoped package (`@ssxv/node-printer`). To publish a release from GitHub Actions the workflow runs `npm publish --access public`. Locally you can publish with:
-
+## Publishing
+When prebuild artifacts are attached to a GitHub Release, publish the npm package as usual:
 ```powershell
-# make sure you're logged in to npm and have the right permissions
+# ensure release includes prebuild artifacts
 npm publish --access public
 ```
 
-Notes
------
-- This PoC currently implements only Windows (Winspool) functionality. POSIX/CUPS support is planned.
-- The module exports both Promise and callback-compatible APIs for `printDirect` and `printFile`.
-- When publishing, ensure `build/Release/node_printer.node` is built for your target environment or use prebuilds.
+If you do not publish prebuilds, document that consumers require a native toolchain (Visual Studio Build Tools + Python) to install from source.
+
+## Notes & Roadmap
+- This PoC implements Windows (Winspool) functionality only. POSIX/CUPS support is planned separately.
+- The module exposes both Promise and callback-compatible APIs. Type definitions are available in `types/index.d.ts`.
+- I can add a CI workflow that produces prebuild artifacts and uploads them to Releases (recommended prior to publishing). If you want, I can implement that next.
+
+## Contact
+- Issues & PRs: https://github.com/ssxv/node-printer

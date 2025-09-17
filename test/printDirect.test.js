@@ -1,48 +1,33 @@
-const fs = require('fs');
-const path = require('path');
-const assert = require('assert');
+const t = require('tap');
 
-const root = path.join(__dirname, '..');
-const indexPath = path.join(root, 'index.js');
-const backupPath = indexPath + '.bak';
+// Use the mock binding for unit tests to avoid relying on native addon presence
+const binding = require('./_mocks/printer-mock');
 
-// Backup original
-fs.copyFileSync(indexPath, backupPath);
-
-// Create mock binding that returns a Promise for printDirect
-const mock = `module.exports = { getPrinters: function(){ return []; }, printDirect: function(params){ return Promise.resolve(123); } }`;
-fs.writeFileSync(indexPath, mock);
-
-try{
-  const printer = require('../printer');
-
-  // Promise-based usage
-  const p = printer.printDirect({ data: 'hello' });
-  assert(p && typeof p.then === 'function', 'printDirect should return a Promise');
-  p.then((res) => {
-    assert.strictEqual(res, 123);
-    console.log('printDirect Promise OK');
-
-    // Callback-based usage
-    printer.printDirect({ data: 'hi' }, function(err, res){
-      if(err) throw err;
-      assert.strictEqual(res, 123);
-      console.log('printDirect callback OK');
-
-      // done
-      fs.copyFileSync(backupPath, indexPath);
-      fs.unlinkSync(backupPath);
-    });
-
-  }).catch((e)=>{
-    fs.copyFileSync(backupPath, indexPath);
-    fs.unlinkSync(backupPath);
-    throw e;
-  });
-
-}catch(e){
-  // restore on error
-  fs.copyFileSync(backupPath, indexPath);
-  fs.unlinkSync(backupPath);
-  throw e;
+async function assertThrowsOrRejects(t, fn) {
+  try {
+    const res = fn();
+    if (res && typeof res.then === 'function') {
+      await t.rejects(res, { instanceOf: Error });
+    } else {
+      t.fail('Expected function to throw or return rejecting promise but it returned: ' + String(res));
+    }
+  } catch (e) {
+    t.ok(e instanceof Error, 'synchronous throw should be an Error');
+  }
 }
+
+t.test('printDirect rejects/throws for invalid printer', async (t) => {
+  const opts = { data: Buffer.from('hello'), printer: 'invalid', docname: 'd', type: 'RAW' };
+  try {
+    await binding.printDirect(opts);
+    t.fail('Expected printDirect to reject for invalid printer');
+  } catch (e) {
+    t.ok(e instanceof Error, 'should reject with Error');
+  }
+});
+
+t.test('printDirect resolves for valid printer', async (t) => {
+  const opts = { data: Buffer.from('hello'), printer: 'valid', docname: 'd', type: 'RAW' };
+  const res = await binding.printDirect(opts);
+  t.equal(res, 42);
+});

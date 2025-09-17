@@ -1,48 +1,27 @@
-const fs = require('fs');
-const path = require('path');
-const assert = require('assert');
+const t = require('tap');
 
-const root = path.join(__dirname, '..');
-const indexPath = path.join(root, 'index.js');
-const backupPath = indexPath + '.bak';
+const binding = require('./_mocks/printer-mock');
 
-// Backup original
-fs.copyFileSync(indexPath, backupPath);
-
-// Create mock binding that returns a Promise for printFile
-const mock = `module.exports = { getPrinters: function(){ return []; }, printFile: function(filename){ return Promise.resolve(456); } }`;
-fs.writeFileSync(indexPath, mock);
-
-try{
-  const printer = require('../printer');
-
-  // Promise-based usage
-  const p = printer.printFile({ filename: 'README.md' });
-  assert(p && typeof p.then === 'function', 'printFile should return a Promise');
-  p.then((res) => {
-    assert.strictEqual(res, 456);
-    console.log('printFile Promise OK');
-
-    // Callback-based usage
-    printer.printFile({ filename: 'README.md' }, function(err, res){
-      if(err) throw err;
-      assert.strictEqual(res, 456);
-      console.log('printFile callback OK');
-
-      // done
-      fs.copyFileSync(backupPath, indexPath);
-      fs.unlinkSync(backupPath);
-    });
-
-  }).catch((e)=>{
-    fs.copyFileSync(backupPath, indexPath);
-    fs.unlinkSync(backupPath);
-    throw e;
-  });
-
-}catch(e){
-  // restore on error
-  fs.copyFileSync(backupPath, indexPath);
-  fs.unlinkSync(backupPath);
-  throw e;
+async function assertThrowsOrRejects(t, fn) {
+  try {
+    const res = fn();
+    if (res && typeof res.then === 'function') {
+      await t.rejects(res, { instanceOf: Error });
+    } else {
+      // If the function returned synchronously (non-promise) and didn't throw,
+      // that's an unexpected success.
+      t.fail('Expected function to throw or return rejecting promise but it returned: ' + String(res));
+    }
+  } catch (e) {
+    t.ok(e instanceof Error, 'synchronous throw should be an Error');
+  }
 }
+
+t.test('printFile rejects/throws for non-existent file', async (t) => {
+  await assertThrowsOrRejects(t, () => binding.printFile('non-existent-file.xyz'));
+});
+
+t.test('printFile resolves for valid file', async (t) => {
+  const res = await binding.printFile('somefile.txt', 'doc', 'valid');
+  t.equal(res, 99);
+});

@@ -16,6 +16,12 @@ function normalizeJob(job) {
   });
 }
 
+// Expose internals for unit testing (non-production API)
+module.exports.__test__ = {
+  toDateOrNull,
+  normalizeJob
+};
+
 function normalizePrinter(p) {
   const copy = Object.assign({}, p);
   if (Array.isArray(copy.jobs)) copy.jobs = copy.jobs.map(normalizeJob);

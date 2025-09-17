@@ -35,6 +35,9 @@ jobs:
         # relies on package.json "build" script (node-gyp rebuild)
         run: npm run build
 
+      - name: Run error-handling tests
+        run: node test/error_handling.test.js
+
       - name: Run tests
         run: npm test
 

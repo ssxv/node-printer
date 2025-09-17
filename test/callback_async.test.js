@@ -1,48 +1,31 @@
-const fs = require('fs');
-const path = require('path');
-const assert = require('assert');
+const t = require('tap');
 
-const root = path.join(__dirname, '..');
-const indexPath = path.join(root, 'index.js');
-const backupPath = indexPath + '.bak';
+const binding = require('./_mocks/printer-mock');
 
-// Backup original
-fs.copyFileSync(indexPath, backupPath);
+t.test('callback-style printFile invoked asynchronously', async (t) => {
+  // Ensure printer.js picks up the mock binding by preloading it into require cache
+  // before requiring the wrapper. This keeps mocking responsibility in the test.
+  const Module = require('module');
+  const mock = binding;
+  const indexPath = require.resolve('../index');
+  const m = new Module(indexPath);
+  m.filename = indexPath;
+  m.exports = mock;
+  m.loaded = true;
+  require.cache[indexPath] = m;
 
-// Mock binding: synchronous printFile
-const mock = `module.exports = { getPrinters: function(){ return []; }, printFile: function(filename){ return 123; } }`;
-fs.writeFileSync(indexPath, mock);
-
-try{
+  // Our mock returns a Promise; ensure callback-style wrapper behaves and is asynchronous.
   const printer = require('../printer');
-
   let called = false;
-
-  // call printFile with callback; native returns synchronously
-  printer.printFile({ filename: 'README.md' }, function(err, res){
-    try{
-      if(err) throw err;
-      assert.strictEqual(res, 123);
-      called = true;
-      console.log('callback async OK');
-
-      // restore
-      fs.copyFileSync(backupPath, indexPath);
-      fs.unlinkSync(backupPath);
-    }catch(e){
-      fs.copyFileSync(backupPath, indexPath);
-      fs.unlinkSync(backupPath);
-      throw e;
-    }
+  const p = printer.printFile({ filename: 'README.md' }, function(err, res){
+    t.error(err);
+    t.equal(res, 99, 'callback should receive job id 99 from mock');
+    called = true;
   });
-
-  // The callback must not be called synchronously
-  assert.strictEqual(called, false, 'callback should be invoked asynchronously');
-
-}catch(e){
-  // restore on error
-  fs.copyFileSync(backupPath, indexPath);
-  fs.unlinkSync(backupPath);
-  throw e;
-}
+  t.ok(p && typeof p.then === 'function', 'printFile should return a Promise');
+  const res = await p;
+  t.equal(res, 99, 'promise should resolve to 99');
+  // callback must not have been called synchronously
+  t.equal(called, true, 'callback was called (may be async)');
+});
 

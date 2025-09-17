@@ -173,18 +173,30 @@ static void parseJobObject_add_times(const JOB_INFO_2W* job, Napi::Env env, Napi
   out.Set("completedTime", Napi::Number::New(env, completed));
 }
 
-static std::string getLastErrorMessage() {
-  std::ostringstream s;
+struct ErrorInfo { DWORD code; std::string message; };
+
+static ErrorInfo getLastErrorInfo() {
+  ErrorInfo out{0, std::string()};
   DWORD code = GetLastError();
-  s << "code: " << code;
+  out.code = code;
   LPWSTR buf = NULL;
   DWORD len = FormatMessageW(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
                             NULL, code, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPWSTR)&buf, 0, NULL);
   if (len && buf) {
-    s << ", message: " << ws_to_utf8(buf);
+    out.message = ws_to_utf8(buf);
     LocalFree(buf);
   }
-  return s.str();
+  return out;
+}
+
+static Napi::Error makeNapiErrorWithCode(Napi::Env env, const std::string& prefix, const ErrorInfo& info) {
+  std::ostringstream s;
+  s << prefix;
+  if (info.code != 0) s << " (code=" << info.code << ")";
+  if (!info.message.empty()) s << ": " << info.message;
+  Napi::Error e = Napi::Error::New(env, s.str());
+  if (info.code != 0) e.Set("code", Napi::Number::New(env, static_cast<double>(info.code)));
+  return e;
 }
 
 static std::string getDefaultPrinterUtf8() {
@@ -207,6 +219,9 @@ static std::vector<uint16_t> utf8_to_w(const std::string& s) {
   return buf;
 }
 
+// Threshold to decide whether to stream via temp file instead of copying into memory (4 MiB)
+static const size_t STREAM_THRESHOLD = 4 * 1024 * 1024;
+
 // Forward declarations
 static double systemtime_to_epoch_seconds(const SYSTEMTIME &st);
 static void parseJobObject_add_times(const JOB_INFO_2W* job, Napi::Env env, Napi::Object& out);
@@ -215,9 +230,9 @@ static void retrieveAndParseJobs(LPWSTR printerName, DWORD totalJobs, Napi::Env 
   if (totalJobs == 0) return;
   PrinterHandle handle(printerName);
   if (!handle.isOk()) {
-    Napi::Object err = Napi::Object::New(env);
-    err.Set("error", Napi::String::New(env, std::string("error on PrinterHandle: ") + getLastErrorMessage()));
-    jobsOut.Set((uint32_t)0, err);
+    ErrorInfo info = getLastErrorInfo();
+    Napi::Error e = makeNapiErrorWithCode(env, "error on PrinterHandle", info);
+    jobsOut.Set((uint32_t)0, e.Value());
     return;
   }
 
@@ -226,9 +241,9 @@ static void retrieveAndParseJobs(LPWSTR printerName, DWORD totalJobs, Napi::Env 
   std::vector<BYTE> buffer(bytesNeeded);
   b = EnumJobsW(handle, 0, totalJobs, 2, buffer.data(), bytesNeeded, &bytesNeeded, &returned);
   if (!b) {
-    Napi::Object err = Napi::Object::New(env);
-    err.Set("error", Napi::String::New(env, std::string("Error on EnumJobsW: ") + getLastErrorMessage()));
-    jobsOut.Set((uint32_t)0, err);
+    ErrorInfo info = getLastErrorInfo();
+    Napi::Error e = makeNapiErrorWithCode(env, "Error on EnumJobsW", info);
+    jobsOut.Set((uint32_t)0, e.Value());
     return;
   }
   JOB_INFO_2W* job = reinterpret_cast<JOB_INFO_2W*>(buffer.data());
@@ -314,7 +329,9 @@ Napi::Array GetPrintersWrapped(const Napi::CallbackInfo& args) {
   std::vector<BYTE> buffer(bytesNeeded);
   b = EnumPrintersW(flags, NULL, 2, buffer.data(), bytesNeeded, &bytesNeeded, &returned);
   if (!b) {
-    Napi::TypeError::New(env, std::string("Error on EnumPrinters: ") + getLastErrorMessage()).ThrowAsJavaScriptException();
+    ErrorInfo info = getLastErrorInfo();
+    Napi::Error e = makeNapiErrorWithCode(env, "Error on EnumPrinters", info);
+    e.ThrowAsJavaScriptException();
     return Napi::Array::New(env);
   }
 
@@ -356,26 +373,68 @@ Napi::Value PrintDirectWrapped(const Napi::CallbackInfo& args) {
   // Create a Promise and an AsyncWorker that will perform printing off the main thread
   auto deferred = Napi::Promise::Deferred::New(env);
 
-  // Create a copy of data for the worker
+  // Create worker data; avoid copying very large buffers by streaming via temp file
   struct WorkerData {
     std::vector<char> data;
+    std::string tempFilename; // if streaming from disk
+    bool createdTemp = false; // whether we created the temp file and should delete it
     std::string printer;
     std::string docname;
     std::string type;
-    std::string error;
+    ErrorInfo errorInfo;
+    std::string errorPrefix;
     DWORD jobId;
   };
 
   WorkerData* wd = new WorkerData();
-  wd->data.swap(dataVec);
   wd->printer = std::move(printerUtf8);
   wd->docname = std::move(docnameUtf8);
   wd->type = std::move(typeUtf8);
+  wd->errorPrefix = "PrintDirect";
+
+  bool usedTemp = false;
+  Napi::Reference<Napi::Buffer<char>> bufRef;
+  bool haveBufferRef = false;
+  if (args[0].IsBuffer()) {
+    Napi::Buffer<char> b = args[0].As<Napi::Buffer<char>>();
+    if (dataLen <= STREAM_THRESHOLD) {
+      // keep buffer alive via reference and avoid copying
+      bufRef = Napi::Persistent(b);
+      haveBufferRef = true;
+    } else {
+      // large buffer -> write to temp file for streaming
+      // fallthrough to write using dataVec
+    }
+  }
+
+  if (!haveBufferRef && dataLen > STREAM_THRESHOLD) {
+    // write to temp file and let worker stream it
+    char tmpPath[MAX_PATH];
+    if (GetTempPathA(MAX_PATH, tmpPath) > 0) {
+      char tmpFile[MAX_PATH];
+      if (GetTempFileNameA(tmpPath, "npr", 0, tmpFile) != 0) {
+        std::ofstream ofs(tmpFile, std::ios::binary);
+        if (ofs) {
+          ofs.write(dataVec.data(), dataVec.size());
+          ofs.close();
+            wd->tempFilename = std::string(tmpFile);
+            wd->createdTemp = true;
+            usedTemp = true;
+        }
+      }
+    }
+  }
+  if (!usedTemp) {
+      wd->data.swap(dataVec);
+  }
 
   class PrintWorker : public Napi::AsyncWorker {
   public:
     PrintWorker(Napi::Env env, WorkerData* d, Napi::Promise::Deferred def)
-      : Napi::AsyncWorker(env), data(d), deferred(def) {}
+      : Napi::AsyncWorker(env), data(d), deferred(def), hasBufferRef(false) {}
+
+    PrintWorker(Napi::Env env, WorkerData* d, Napi::Promise::Deferred def, Napi::Reference<Napi::Buffer<char>>&& ref)
+      : Napi::AsyncWorker(env), data(d), deferred(def), bufferRef(std::move(ref)), hasBufferRef(true) {}
 
     ~PrintWorker() { delete data; }
 
@@ -387,7 +446,8 @@ Napi::Value PrintDirectWrapped(const Napi::CallbackInfo& args) {
 
       PrinterHandle printerHandle((LPWSTR)printerW.data());
       if (!printerHandle.isOk()) {
-        data->error = std::string("error on PrinterHandle: ") + getLastErrorMessage();
+        data->errorInfo = getLastErrorInfo();
+        data->errorPrefix = "error on PrinterHandle";
         return;
       }
 
@@ -398,35 +458,77 @@ Napi::Value PrintDirectWrapped(const Napi::CallbackInfo& args) {
 
       DWORD dwJob = StartDocPrinterW((HANDLE)printerHandle, 1, (LPBYTE)&DocInfo );
       if (dwJob == 0) {
-        data->error = std::string("StartDocPrinterW error: ") + getLastErrorMessage();
+        data->errorInfo = getLastErrorInfo();
+        data->errorPrefix = "StartDocPrinterW error";
         return;
       }
 
       if (!StartPagePrinter((HANDLE)printerHandle)) {
         EndDocPrinter((HANDLE)printerHandle);
-        data->error = std::string("StartPagePrinter error: ") + getLastErrorMessage();
+        data->errorInfo = getLastErrorInfo();
+        data->errorPrefix = "StartPagePrinter error";
         return;
       }
 
       DWORD dwBytesWritten = 0;
-      BOOL written = WritePrinter((HANDLE)printerHandle, (LPVOID)data->data.data(), (DWORD)data->data.size(), &dwBytesWritten);
+      BOOL written = FALSE;
+
+      // If we have a temp file (created for large payload), stream from it in chunks
+      if (!data->tempFilename.empty()) {
+        std::ifstream ifs(data->tempFilename, std::ios::binary);
+        if (!ifs) {
+          data->errorInfo.code = GetLastError();
+          data->errorInfo.message = "Failed to open temp file for streaming";
+          EndPagePrinter((HANDLE)printerHandle);
+          EndDocPrinter((HANDLE)printerHandle);
+          return;
+        }
+        const size_t bufSize = 64 * 1024; // 64 KiB
+        std::vector<char> chunk(bufSize);
+        while (ifs) {
+          ifs.read(chunk.data(), bufSize);
+          std::streamsize got = ifs.gcount();
+          if (got <= 0) break;
+          BOOL ok = WritePrinter((HANDLE)printerHandle, chunk.data(), (DWORD)got, &dwBytesWritten);
+          if (!ok || dwBytesWritten != (DWORD)got) {
+            data->errorInfo = getLastErrorInfo();
+            ifs.close();
+            EndPagePrinter((HANDLE)printerHandle);
+            EndDocPrinter((HANDLE)printerHandle);
+            return;
+          }
+        }
+        ifs.close();
+      } else if (hasBufferRef) {
+        auto buf = bufferRef.Value();
+        written = WritePrinter((HANDLE)printerHandle, (LPVOID)buf.Data(), (DWORD)buf.Length(), &dwBytesWritten);
+        if (!written || dwBytesWritten != (DWORD)buf.Length()) {
+          data->errorInfo = getLastErrorInfo();
+          data->errorPrefix = "WritePrinter";
+          return;
+        }
+      } else {
+        written = WritePrinter((HANDLE)printerHandle, (LPVOID)data->data.data(), (DWORD)data->data.size(), &dwBytesWritten);
+        if (!written || dwBytesWritten != (DWORD)data->data.size()) {
+          data->errorInfo = getLastErrorInfo();
+          data->errorPrefix = "WritePrinter";
+          return;
+        }
+      }
       EndPagePrinter((HANDLE)printerHandle);
       EndDocPrinter((HANDLE)printerHandle);
-      if (!written) {
-        data->error = std::string("WritePrinter error: ") + getLastErrorMessage();
-        return;
-      }
-      if (dwBytesWritten != data->data.size()) {
-        data->error = "not sent all bytes";
-        return;
-      }
       data->jobId = dwJob;
     }
 
     void OnOK() override {
       Napi::Env env = Env();
-      if (!data->error.empty()) {
-        deferred.Reject(Napi::Error::New(env, data->error).Value());
+      // cleanup temp file if we created one
+      if (data->createdTemp && !data->tempFilename.empty()) {
+        DeleteFileA(data->tempFilename.c_str());
+      }
+      if (data->errorInfo.code != 0 || !data->errorInfo.message.empty()) {
+        Napi::Error e = makeNapiErrorWithCode(env, data->errorPrefix, data->errorInfo);
+        deferred.Reject(e.Value());
       } else {
         deferred.Resolve(Napi::Number::New(env, data->jobId));
       }
@@ -439,9 +541,16 @@ Napi::Value PrintDirectWrapped(const Napi::CallbackInfo& args) {
   private:
     WorkerData* data;
     Napi::Promise::Deferred deferred;
+    Napi::Reference<Napi::Buffer<char>> bufferRef;
+    bool hasBufferRef;
   };
 
-  PrintWorker* w = new PrintWorker(env, wd, deferred);
+  PrintWorker* w = nullptr;
+  if (haveBufferRef) {
+    w = new PrintWorker(env, wd, deferred, std::move(bufRef));
+  } else {
+    w = new PrintWorker(env, wd, deferred);
+  }
   w->Queue();
   return deferred.Promise();
 }
@@ -464,27 +573,31 @@ Napi::Value PrintFileWrapped(const Napi::CallbackInfo& args) {
     }
   }
 
-  // read file into vector
+  // Check file exists (do not read into memory here for large files)
   std::ifstream ifs(filename, std::ios::binary);
   if (!ifs) {
-    Napi::TypeError::New(env, std::string("cannot open file: ") + filename).ThrowAsJavaScriptException();
+    ErrorInfo info{0, std::string("cannot open file: " + filename)};
+    Napi::Error e = makeNapiErrorWithCode(env, "cannot open file", info);
+    e.ThrowAsJavaScriptException();
     return env.Null();
   }
-  std::vector<char> contents((std::istreambuf_iterator<char>(ifs)), std::istreambuf_iterator<char>());
 
   // create promise and worker data
   auto deferred = Napi::Promise::Deferred::New(env);
   struct FileWorkerData {
     std::vector<char> data;
+    std::string filename; // stream directly from this file in the worker
     std::string printer;
     std::string docname;
-    std::string error;
+    ErrorInfo errorInfo;
+    std::string errorPrefix;
     DWORD jobId;
   };
   FileWorkerData* fd = new FileWorkerData();
-  fd->data.swap(contents);
+  fd->filename = filename;
   fd->printer = std::move(printer);
   fd->docname = std::move(docname);
+  fd->errorPrefix = "PrintFile";
 
   class PrintFileWorker : public Napi::AsyncWorker {
   public:
@@ -496,25 +609,50 @@ Napi::Value PrintFileWrapped(const Napi::CallbackInfo& args) {
       std::vector<uint16_t> docnameW = utf8_to_w(data->docname);
       std::vector<uint16_t> typeW = utf8_to_w(std::string("RAW"));
       PrinterHandle printerHandle((LPWSTR)printerW.data());
-      if (!printerHandle.isOk()) { data->error = std::string("error on PrinterHandle: ") + getLastErrorMessage(); return; }
+      if (!printerHandle.isOk()) { data->errorInfo = getLastErrorInfo(); data->errorPrefix = "error on PrinterHandle"; return; }
       DOC_INFO_1W DocInfo;
       DocInfo.pDocName = (LPWSTR)docnameW.data();
       DocInfo.pOutputFile = NULL;
       DocInfo.pDatatype = (LPWSTR)typeW.data();
       DWORD dwJob = StartDocPrinterW((HANDLE)printerHandle, 1, (LPBYTE)&DocInfo );
-      if (dwJob == 0) { data->error = std::string("StartDocPrinterW error: ") + getLastErrorMessage(); return; }
-      if (!StartPagePrinter((HANDLE)printerHandle)) { EndDocPrinter((HANDLE)printerHandle); data->error = std::string("StartPagePrinter error: ") + getLastErrorMessage(); return; }
+      if (dwJob == 0) { data->errorInfo = getLastErrorInfo(); data->errorPrefix = "StartDocPrinterW error"; return; }
+      if (!StartPagePrinter((HANDLE)printerHandle)) { EndDocPrinter((HANDLE)printerHandle); data->errorInfo = getLastErrorInfo(); data->errorPrefix = "StartPagePrinter error"; return; }
       DWORD dwBytesWritten = 0;
-      BOOL written = WritePrinter((HANDLE)printerHandle, (LPVOID)data->data.data(), (DWORD)data->data.size(), &dwBytesWritten);
+      // Stream file directly from disk to printer in chunks to avoid loading entire file into memory
+      std::ifstream ifs2(data->filename, std::ios::binary);
+      if (!ifs2) {
+        data->errorInfo = getLastErrorInfo();
+        data->errorPrefix = "cannot open file in worker";
+        return;
+      }
+      const size_t bufSize = 64 * 1024;
+      std::vector<char> chunk(bufSize);
+      while (ifs2) {
+        ifs2.read(chunk.data(), bufSize);
+        std::streamsize got = ifs2.gcount();
+        if (got <= 0) break;
+        BOOL ok = WritePrinter((HANDLE)printerHandle, chunk.data(), (DWORD)got, &dwBytesWritten);
+        if (!ok || dwBytesWritten != (DWORD)got) {
+          data->errorInfo = getLastErrorInfo();
+          ifs2.close();
+          EndPagePrinter((HANDLE)printerHandle);
+          EndDocPrinter((HANDLE)printerHandle);
+          return;
+        }
+      }
+      ifs2.close();
       EndPagePrinter((HANDLE)printerHandle);
       EndDocPrinter((HANDLE)printerHandle);
-      if (!written) { data->error = std::string("WritePrinter error: ") + getLastErrorMessage(); return; }
-      if (dwBytesWritten != data->data.size()) { data->error = "not sent all bytes"; return; }
       data->jobId = dwJob;
     }
     void OnOK() override {
       Napi::Env env = Env();
-      if (!data->error.empty()) deferred.Reject(Napi::Error::New(env, data->error).Value()); else deferred.Resolve(Napi::Number::New(env, data->jobId));
+      if (data->errorInfo.code != 0 || !data->errorInfo.message.empty()) {
+        Napi::Error e = makeNapiErrorWithCode(env, data->errorPrefix, data->errorInfo);
+        deferred.Reject(e.Value());
+      } else {
+        deferred.Resolve(Napi::Number::New(env, data->jobId));
+      }
     }
     void OnError(const Napi::Error& e) override { deferred.Reject(e.Value()); }
   private:

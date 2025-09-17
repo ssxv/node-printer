@@ -6,7 +6,7 @@
   "scripts": {
     "install": "prebuild-install || node-gyp rebuild",
     "build": "node-gyp rebuild",
-    "test": "node test/printDirect.test.js && node test/printFile.test.js && node test/callback_async.test.js && node test/callback_promise_no_double.test.js && node test/test_get_printers.js"
+    "test": "tap test/*.test.js"
   },
   "keywords": [
     "printer",
@@ -15,13 +15,15 @@
     "windows",
     "printing"
   ],
-  "author": "",
+  "author": {
+    "name": "Satyendra Singh",
+    "email": "satyendraxv@gmail.com"
+  },
   "license": "MIT",
   "engines": {
     "node": ">=14"
   },
   "files": [
-    "build/Release/node_printer.node",
     "printer.js",
     "index.js",
     "binding.gyp",
@@ -45,6 +47,7 @@
   "homepage": "https://github.com/ssxv/node-printer#readme",
   "devDependencies": {
     "node-gyp": ">=7.0.0",
-    "prebuild": "^13.0.1"
+    "prebuild": "^13.0.1",
+    "tap": "^21.1.0"
   }
 }
