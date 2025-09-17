@@ -2,16 +2,17 @@ name: Build Windows x64 prebuilds
 
 on:
   workflow_dispatch:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
   release:
     types: [created]
+  workflow_run:
+    workflows: ["CI Tests"]
+    types:
+      - completed
 
 jobs:
   build-windows-x64:
     name: Build Windows x64 (Node ${{ matrix.node }})
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: windows-latest
     strategy:
       fail-fast: false

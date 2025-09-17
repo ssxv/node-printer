@@ -25,7 +25,6 @@ jobs:
         run: npm test
 
   windows-integration:
-    if: runner.os == 'Windows' || matrix.os == 'windows-latest'
     runs-on: windows-latest
     strategy:
       matrix:
