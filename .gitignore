@@ -1,0 +1,55 @@
+# Node modules
+node_modules/
+
+# Build output
+build/
+build/Release/
+dist/
+
+# Prebuild/prebuilt binary caches
+prebuilds/
+*.tar.gz
+*.tgz
+
+# Compiled addon
+*.node
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Visual Studio / Windows build artifacts
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# node-gyp / Visual Studio intermediate files
+obj/
+Release/
+Debug/
+*.pdb
+*.lib
+*.exp
+
+# IDE/editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Environment files
+.env
+.env.local
+
+# Coverage
+coverage/
+
+# npm package lock (optional - keep if you want reproducible installs)
+# package-lock.json

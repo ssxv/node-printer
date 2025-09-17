@@ -1,0 +1,49 @@
+{
+  "name": "@ssxv/node-printer",
+  "version": "0.1.0",
+  "description": "A modern N-API Node.js addon for printer access (Windows PoC).",
+  "main": "printer.js",
+  "scripts": {
+    "install": "prebuild-install || node-gyp rebuild",
+    "build": "node-gyp rebuild",
+    "test": "node test/printDirect.test.js && node test/printFile.test.js && node test/callback_async.test.js && node test/callback_promise_no_double.test.js && node test/test_get_printers.js"
+  },
+  "keywords": [
+    "printer",
+    "napi",
+    "native",
+    "windows",
+    "printing"
+  ],
+  "author": "",
+  "license": "MIT",
+  "engines": {
+    "node": ">=14"
+  },
+  "files": [
+    "build/Release/node_printer.node",
+    "printer.js",
+    "index.js",
+    "binding.gyp",
+    "src/",
+    "types/index.d.ts",
+    "examples/"
+  ],
+  "dependencies": {
+    "node-addon-api": "^5.0.0",
+    "prebuild-install": "^7.0.1"
+  },
+  "types": "types/index.d.ts",
+  "gypfile": true,
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ssxv/node-printer.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ssxv/node-printer/issues"
+  },
+  "homepage": "https://github.com/ssxv/node-printer#readme",
+  "devDependencies": {
+     "node-gyp": ">=7.0.0"
+  }
+}
