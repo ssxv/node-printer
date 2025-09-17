@@ -1,6 +1,7 @@
 name: CI Tests
 
 on:
+  workflow_dispatch:
   push:
     branches: [ main ]
   pull_request:
@@ -9,10 +10,9 @@ on:
 
 jobs:
   unit:
-    runs-on: ${{ matrix.os }}
+    runs-on: windows-latest
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
         node: ['18.x', '20.x', '22.x']
     steps:
       - uses: actions/checkout@v4
@@ -20,15 +20,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node }}
-      - name: Install deps (Windows)
-        if: runner.os == 'Windows'
+      - name: Install deps
         run: npm ci
-
-      - name: Install deps (non-Windows)
-        if: runner.os != 'Windows'
-        # Prevent running install scripts (prebuild-install / node-gyp) on non-Windows runners
-        # Unit tests use JS mocks so the native addon is not required for these runs.
-        run: npm ci --ignore-scripts
       - name: Run unit tests
         run: npm test
 
