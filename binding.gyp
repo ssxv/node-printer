@@ -3,7 +3,7 @@
     {
       "target_name": "node_printer",
       "sources": [
-        "src/get_printers_win.cc"
+        "src/node_printer_win.cc"
       ],
       "include_dirs": [
         "<!@(node -p \"require('node-addon-api').include\")"
