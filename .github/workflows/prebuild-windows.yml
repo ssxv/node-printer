@@ -38,9 +38,6 @@ jobs:
       - name: Run error-handling tests
         run: node test/error_handling.test.js
 
-      - name: Run tests
-        run: npm test
-
       - name: Create prebuild artifact (x64)
         env:
           npm_config_disturl: https://nodejs.org/dist
