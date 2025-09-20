@@ -68,9 +68,14 @@ jobs:
           files: prebuilds/**/*
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
-      - name: Publish to npm
+      - name: Authenticate to npm
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          # Write a temporary .npmrc so npm publish is authenticated on the runner
+          echo "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}" > ~/.npmrc
+
+      - name: Publish to npm
         # We skip running install scripts on the Linux runner because this
         # repository contains a Windows-only native addon which fails to
         # compile on non-Windows platforms. Using `--ignore-scripts` avoids
