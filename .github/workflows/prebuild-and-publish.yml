@@ -3,30 +3,58 @@ name: Prebuild and Publish
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
 
 jobs:
   build-prebuilds:
-    name: Build prebuilds (Windows)
-    runs-on: windows-latest
+    name: Build prebuilds (Windows & Linux)
+    runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
       matrix:
-        node: ['18.x','20.x','22.x']
-        arch: ['x64']
-    outputs:
-      artifact-names: ${{ steps.set-artifact-names.outputs.names }}
+        include:
+          - node: "18.x"
+            arch: "x64"
+            runner: windows-latest
+            platform: win32
+          - node: "18.x"
+            arch: "x64"
+            runner: ubuntu-latest
+            platform: linux
+          - node: "20.x"
+            arch: "x64"
+            runner: windows-latest
+            platform: win32
+          - node: "20.x"
+            arch: "x64"
+            runner: ubuntu-latest
+            platform: linux
+          - node: "22.x"
+            arch: "x64"
+            runner: windows-latest
+            platform: win32
+          - node: "22.x"
+            arch: "x64"
+            runner: ubuntu-latest
+            platform: linux
     steps:
       - uses: actions/checkout@v4
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node }}
+      - name: Install Linux build deps
+        if: ${{ matrix.platform == 'linux' }}
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libcups2-dev build-essential python3
+        shell: bash
       - name: Install deps
         run: npm ci
       - name: Build native addon
         run: npm run build
-      - name: Create prebuild artifact
+      - name: Create prebuild artifact (Windows)
+        if: ${{ matrix.platform == 'win32' }}
         id: prebuild
         env:
           npm_config_disturl: https://nodejs.org/dist
@@ -36,10 +64,22 @@ jobs:
           Write-Host "Detected node runtime: $nodever"
           npx --no-install prebuild --strip --target $nodever --arch=${{ matrix.arch }} --platform=win32 --runtime=node --out prebuilds
           Write-Host "Created prebuilds:"; Get-ChildItem prebuilds | ForEach-Object { Write-Host $_.FullName }
+      - name: Create prebuild artifact (Linux)
+        if: ${{ matrix.platform == 'linux' }}
+        id: prebuild-linux
+        env:
+          npm_config_disturl: https://nodejs.org/dist
+        run: |
+          mkdir -p prebuilds
+          nodever=$(node -v)
+          echo "Detected node runtime: $nodever"
+          npx --no-install prebuild --strip --target $nodever --arch=${{ matrix.arch }} --platform=linux --runtime=node --out prebuilds
+          echo "Created prebuilds:"; ls -la prebuilds
+        shell: bash
       - name: Upload prebuild artifact
         uses: actions/upload-artifact@v4
         with:
-          name: prebuilds-${{ matrix.node }}-${{ matrix.arch }}
+          name: prebuilds-${{ matrix.node }}-${{ matrix.arch }}-${{ matrix.platform }}
           path: prebuilds/*
 
   publish:
@@ -57,9 +97,6 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ github.ref }}
-        # This step uses a Personal Access Token stored in repository secrets as
-        # `RELEASE_TOKEN`. Create that secret (instructions below) and the
-        # workflow will use it to create the Release and upload assets.
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
       - name: Upload prebuilds to Release (uses PAT)
@@ -76,9 +113,5 @@ jobs:
           echo "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}" > ~/.npmrc
 
       - name: Publish to npm
-        # We skip running install scripts on the Linux runner because this
-        # repository contains a Windows-only native addon which fails to
-        # compile on non-Windows platforms. Using `--ignore-scripts` avoids
-        # running lifecycle scripts (like `install`) during publish.
         run: |
           npm publish --access public --ignore-scripts

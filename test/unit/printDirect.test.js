@@ -1,7 +1,7 @@
 const t = require('tap');
 
 // Use the mock binding for unit tests to avoid relying on native addon presence
-const binding = require('./_mocks/printer-mock');
+const binding = require('../_mocks/printer-mock');
 
 async function assertThrowsOrRejects(t, fn) {
   try {

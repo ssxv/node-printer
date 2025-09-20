@@ -1,19 +1,19 @@
 const t = require('tap');
 
-const binding = require('./_mocks/printer-mock');
+const binding = require('../_mocks/printer-mock');
 
 t.test('no double reporting between promise and callback', async (t) => {
   // Preload the mock into require cache so the wrapper picks it up.
   const Module = require('module');
   const mock = binding;
-  const indexPath = require.resolve('../index');
+  const indexPath = require.resolve('../../index');
   const m = new Module(indexPath);
   m.filename = indexPath;
   m.exports = mock;
   m.loaded = true;
   require.cache[indexPath] = m;
 
-  const printer = require('../printer');
+  const printer = require('../../printer');
   let callbackCalled = 0;
   const p = printer.printFile({ filename: 'README.md' }, function(err, res){
     t.error(err);

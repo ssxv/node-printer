@@ -1,5 +1,5 @@
 const t = require('tap');
-const binding = require('./_mocks/printer-mock');
+const binding = require('../_mocks/printer-mock');
 
 t.test('error handling', async (t) => {
   // 1) printDirect with invalid printer should reject with Error
@@ -21,8 +21,10 @@ t.test('error handling', async (t) => {
   }
 
   // 3) printFile with valid file but invalid printer should reject
-  const tmp = require('os').tmpdir() + '\\node_printer_test_tmp.txt';
+  const path = require('path');
+  const os = require('os');
   const fs = require('fs');
+  const tmp = path.join(os.tmpdir(), 'node_printer_test_tmp.txt');
   fs.writeFileSync(tmp, 'hello world');
   try {
     await binding.printFile(tmp, 'doc', 'Printer-Does-Not-Exist-XYZ-123');

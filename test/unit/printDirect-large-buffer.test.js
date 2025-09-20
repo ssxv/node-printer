@@ -7,13 +7,13 @@ const t = require('tap');
 
 const isWindows = process.platform === 'win32';
 const useIntegration = isWindows && process.env.RUN_INTEGRATION === '1';
-const binding = useIntegration ? require('..') : require('./_mocks/printer-mock');
+const binding = useIntegration ? require('../../types') : require('../_mocks/printer-mock');
 
 if (!useIntegration) {
   // Preload mock in require cache so the wrapper picks it up when requiring ../printer
   const Module = require('module');
   const mock = binding;
-  const indexPath = require.resolve('../index');
+  const indexPath = require.resolve('../../index');
   const m = new Module(indexPath);
   m.filename = indexPath;
   m.exports = mock;
@@ -21,7 +21,7 @@ if (!useIntegration) {
   require.cache[indexPath] = m;
 }
 
-const printer = require('../printer');
+const printer = require('../../printer');
 
 t.test('printDirect handles large buffers (mock or native integration)', async (t) => {
   // Construct a buffer slightly larger than 4 MiB (4 * 1024 * 1024)

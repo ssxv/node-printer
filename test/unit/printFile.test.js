@@ -1,6 +1,6 @@
 const t = require('tap');
 
-const binding = require('./_mocks/printer-mock');
+const binding = require('../_mocks/printer-mock');
 
 async function assertThrowsOrRejects(t, fn) {
   try {

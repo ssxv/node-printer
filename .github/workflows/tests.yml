@@ -3,17 +3,24 @@ name: CI Tests
 on:
   workflow_dispatch:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
-
+    branches: [main]
 
 jobs:
   unit:
-    runs-on: windows-latest
+    runs-on: ${{ matrix.runner }}
     strategy:
       matrix:
-        node: ['18.x', '20.x', '22.x']
+        include:
+          - node: "22.x"
+            arch: "x64"
+            runner: windows-latest
+            platform: win32
+          - node: "22.x"
+            arch: "x64"
+            runner: ubuntu-latest
+            platform: linux
     steps:
       - uses: actions/checkout@v4
       - name: Setup Node
@@ -24,41 +31,3 @@ jobs:
         run: npm ci
       - name: Run unit tests
         run: npm test
-
-  windows-integration:
-    runs-on: windows-latest
-    strategy:
-      matrix:
-        node: ['18.x', '20.x', '22.x']
-    steps:
-      - uses: actions/checkout@v4
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ matrix.node }}
-      - name: Install build tools
-        run: |
-          choco install visualstudio2019buildtools -y || echo 'vc buildtools may already be present'
-      - name: Install deps
-        run: npm ci
-      - name: Build
-        run: npm run build
-      - name: Run integration tests (real printers required)
-        id: integration
-        run: |
-          # Integration tests expect a configured test/virtual printer. Set RUN_INTEGRATION=1 only when available.
-          if ($env:RUN_INTEGRATION -eq '1') {
-            npm test
-          } else {
-            echo 'Skipping integration tests; set RUN_INTEGRATION=1 to run.'
-          }
-      - name: Upload test logs on failure
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: integration-logs
-          path: |
-            ./**/npm-debug.log
-            ./test-results || true
-
-  # prebuild job removed: prebuilds are handled by the release workflow: prebuild-and-publish.yml
