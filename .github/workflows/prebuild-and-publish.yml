@@ -1,0 +1,73 @@
+name: Prebuild and Publish
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-prebuilds:
+    name: Build prebuilds (Windows)
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['18.x','20.x','22.x']
+        arch: ['x64']
+    outputs:
+      artifact-names: ${{ steps.set-artifact-names.outputs.names }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Install deps
+        run: npm ci
+      - name: Build native addon
+        run: npm run build
+      - name: Create prebuild artifact
+        id: prebuild
+        env:
+          npm_config_disturl: https://nodejs.org/dist
+        run: |
+          if (!(Test-Path prebuilds)) { New-Item -ItemType Directory -Path prebuilds | Out-Null }
+          $nodever = (node -v).Trim()
+          Write-Host "Detected node runtime: $nodever"
+          npx --no-install prebuild --strip --target $nodever --arch=${{ matrix.arch }} --platform=win32 --runtime=node --out prebuilds
+          Write-Host "Created prebuilds:"; Get-ChildItem prebuilds | ForEach-Object { Write-Host $_.FullName }
+      - name: Upload prebuild artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: prebuilds-${{ matrix.node }}-${{ matrix.arch }}
+          path: prebuilds/*
+
+  publish:
+    name: Create release and publish
+    runs-on: ubuntu-latest
+    needs: build-prebuilds
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./prebuilds
+      - name: Create GitHub Release
+        id: create_release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.ref }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Upload prebuilds to Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: prebuilds/**/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish to npm
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          npm ci --omit=dev
+          npm publish --access public

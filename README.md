@@ -4,6 +4,8 @@ Proof-of-concept N-API addon exposing basic printing APIs on Windows (Winspool).
 
 This repository demonstrates building a small native Node.js addon with `node-addon-api` and provides a JavaScript wrapper with Promise and callback-compatible interfaces.
 
+Documentation is under the `docs/` folder. Start at `docs/index.md` for an overview and links.
+
 Supported Node.js versions
 - Node.js 18.x, 20.x, 22.x
 
@@ -40,6 +42,7 @@ Prebuilds and publishing
 - CI should build and attach prebuild artifacts to GitHub Releases for each supported Node.js version and architecture you want to support.
 
 Documentation
+- Start here: `docs/index.md`
 - Architecture & data flow: `docs/ARCHITECTURE.md`
 - Type definitions: `types/index.d.ts`
 

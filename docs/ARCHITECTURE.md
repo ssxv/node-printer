@@ -29,4 +29,6 @@ Notes:
 - The native addon uses N-API and runs heavy or blocking I/O on AsyncWorker threads to avoid blocking Node's event loop.
 - Unit tests use a JS mock for the native binding so unit tests run deterministically on non-Windows CI.
 
+See also: `index.md` (project documentation entrypoint)
+
 For more detailed flows (e.g., `printDirect` small-buffer vs streaming via temp-file), see the native worker implementation in `src/node_printer_win.cc`.
