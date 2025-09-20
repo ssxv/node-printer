@@ -71,6 +71,9 @@ jobs:
       - name: Publish to npm
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        # We skip running install scripts on the Linux runner because this
+        # repository contains a Windows-only native addon which fails to
+        # compile on non-Windows platforms. Using `--ignore-scripts` avoids
+        # running lifecycle scripts (like `install`) during publish.
         run: |
-          npm ci --omit=dev
-          npm publish --access public
+          npm publish --access public --ignore-scripts
