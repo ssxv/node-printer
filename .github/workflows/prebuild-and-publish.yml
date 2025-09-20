@@ -52,19 +52,22 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: ./prebuilds
-      - name: Create GitHub Release
+      - name: Create GitHub Release (uses PAT)
         id: create_release
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ github.ref }}
+        # This step uses a Personal Access Token stored in repository secrets as
+        # `RELEASE_TOKEN`. Create that secret (instructions below) and the
+        # workflow will use it to create the Release and upload assets.
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Upload prebuilds to Release
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+      - name: Upload prebuilds to Release (uses PAT)
         uses: softprops/action-gh-release@v1
         with:
           files: prebuilds/**/*
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
       - name: Publish to npm
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
