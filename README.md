@@ -1,26 +1,44 @@
-# node-printer
+# @ssxv/node-printer
 
-Proof-of-concept N-API addon exposing basic printing APIs on Windows (Winspool).
+Cross-platform Node.js native printing bindings (Windows & POSIX/CUPS)
 
-This repository demonstrates building a small native Node.js addon with `node-addon-api` and provides a JavaScript wrapper with Promise and callback-compatible interfaces.
+`@ssxv/node-printer` is an N-API native addon exposing a small set of printing APIs to Node.js. The project started as a Windows (Winspool) proof-of-concept and has been extended to include POSIX (CUPS) support so the addon can be built and used on both Windows and Linux systems.
 
-Documentation is under the `docs/` folder. Start at `docs/index.md` for an overview and links.
+Key features
+- Exports: `getPrinters`, `getPrinter`, `getJob`, `getPrinterDriverOptions`, `printFile`, `printDirect`, `setJob`, `getDefaultPrinterName`, `getSupportedPrintFormats`, and `getSupportedJobCommands`.
+- Dual platform support: Win32 (Winspool) and POSIX (libcups).
+- Promise and callback-friendly JavaScript wrapper (`printer.js`).
+- Unit tests are deterministic and mock-driven; integration tests exercise native bindings on the host platform.
+
+Documentation is under the `docs/` folder. Start at `docs/index.md` for an overview and links; the architecture overview is in `docs/ARCHITECTURE.md`.
 
 Supported Node.js versions
 - Node.js 18.x, 20.x, 22.x
 
-Quick install (Windows development)
+Quick start — Development (Windows)
 
 ```powershell
-# Install dev deps
+# Install dev dependencies
 npm ci
 # Build native addon (requires Visual Studio Build Tools + Python)
 npm run build
-# Run unit tests (deterministic / mock-driven)
+# Run unit tests (mock-driven)
 npm test
 ```
 
-Usage (example)
+Quick start — Development (Linux / WSL)
+
+```bash
+# Install system build deps (Ubuntu/Debian)
+sudo apt-get update; sudo apt-get install -y libcups2-dev build-essential python3
+# Install node deps and build
+npm ci
+npm run build
+# Run unit tests (mock-driven)
+npm test
+```
+
+Usage example
 
 ```javascript
 const printer = require('./printer');
@@ -33,22 +51,17 @@ async function list() {
 list();
 ```
 
-Testing & mocks
-- Unit tests are mock-driven and deterministic; unit tests load a JS mock for the native binding so they run on non-Windows CI.
-- Integration/native tests are gated. To run integration tests on Windows set `RUN_INTEGRATION=1` in the environment and ensure a test printer is available.
+Prebuilt binaries & publishing
+- The repository includes a workflow `.github/workflows/prebuild-and-publish.yml` which builds prebuilt binaries on Windows and Linux runners for supported Node.js versions and uploads them as release artifacts. The install flow prefers prebuilt binaries and falls back to source builds using the `install` script in `package.json` (`prebuild-install || node-gyp rebuild`).
+- If you maintain a package registry release, ensure CI publishes prebuilt artifacts for all target Node.js versions and architectures you intend to support.
 
-Prebuilds and publishing
-- To provide painless installs for Windows users, publish prebuilt binaries (per Node ABI and architecture) and keep the `install` script in `package.json` as `prebuild-install || node-gyp rebuild` so installations prefer prebuilt binaries and fall back to source builds.
-- CI should build and attach prebuild artifacts to GitHub Releases for each supported Node.js version and architecture you want to support.
+Build notes & troubleshooting
+- Windows: Visual Studio Build Tools (MSVC) + Python are required to compile the native addon. Follow the Node.js native build tooling docs for setting up `node-gyp` on Windows.
+- Linux: `libcups2-dev` (or the distribution equivalent) is required to build the POSIX/CUPS native sources. On Debian/Ubuntu: `sudo apt-get install libcups2-dev build-essential python3`.
+- If `prebuild-install` cannot find a compatible prebuilt binary during `npm install`, the package will fall back to a source build and you will need the platform build toolchain installed.
 
-Documentation
-- Start here: `docs/index.md`
-- Architecture & data flow: `docs/ARCHITECTURE.md`
-- Type definitions: `types/index.d.ts`
-
-Notes
-- This PoC implements Windows (Winspool) functionality only. POSIX/CUPS support is planned separately.
-- Consider adding `"os": ["win32"]` to `package.json` to restrict installs to Windows if appropriate.
+Notes on driver option parsing (CUPS)
+- The POSIX implementation retrieves driver/option information from libcups. Historically the project used deprecated PPD helper APIs; the codebase has been migrated to use non-deprecated libcups APIs and, where available, `cupsCopyDestInfo`-style calls to gather richer printer driver metadata. Builds against older libcups that lack newer APIs will fall back to a conservative mapping of the destination options (name → value).
 
 Contact
 - Issues & PRs: https://github.com/ssxv/node-printer
