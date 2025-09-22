@@ -56,12 +56,36 @@ Prebuilt binaries & publishing
 - If you maintain a package registry release, ensure CI publishes prebuilt artifacts for all target Node.js versions and architectures you intend to support.
 
 Build notes & troubleshooting
+
 - Windows: Visual Studio Build Tools (MSVC) + Python are required to compile the native addon. Follow the Node.js native build tooling docs for setting up `node-gyp` on Windows.
 - Linux: `libcups2-dev` (or the distribution equivalent) is required to build the POSIX/CUPS native sources. On Debian/Ubuntu: `sudo apt-get install libcups2-dev build-essential python3`.
 - If `prebuild-install` cannot find a compatible prebuilt binary during `npm install`, the package will fall back to a source build and you will need the platform build toolchain installed.
 
-Notes on driver option parsing (CUPS)
-- The POSIX implementation retrieves driver/option information from libcups. Historically the project used deprecated PPD helper APIs; the codebase has been migrated to use non-deprecated libcups APIs and, where available, `cupsCopyDestInfo`-style calls to gather richer printer driver metadata. Builds against older libcups that lack newer APIs will fall back to a conservative mapping of the destination options (name → value).
+Notes on CUPS API requirement and driver option parsing
+
+- Minimum libcups requirement: This project requires the destination-based CUPS APIs introduced in CUPS 1.6. Practically, that means the build environment must provide the modern destination APIs (for example, `cupsCopyDestInfo`) via the development headers (`libcups2-dev` or equivalent). In short: libcups >= 1.6 is required.
+
+- Rationale: The PPD helper family (e.g., `cupsGetPPD`, `ppdOpenFile`, `ppdMarkDefaults`, `cupsMarkOptions`, `ppdClose`) were deprecated in CUPS 1.6 in favor of destination-based APIs. Requiring the modern APIs avoids deprecated behavior, gives richer and more consistent printer metadata, and simplifies the native implementation.
+
+- Verification commands (run on Linux/WSL to confirm headers and version):
+
+```bash
+# Check libcups pkg-config version (if available)
+pkg-config --modversion libcups || pkg-config --modversion cups
+
+# Search for destination API symbol in headers
+grep -nR "cupsCopyDestInfo" /usr/include 2>/dev/null || echo 'cupsCopyDestInfo not found in /usr/include'
+
+# Search for deprecated PPD helper symbols (optional)
+grep -nR "cupsGetPPD\|ppdOpenFile\|ppdMarkDefaults\|cupsMarkOptions\|ppdClose" /usr/include 2>/dev/null || echo 'ppd helper symbols not found in /usr/include'
+```
+
+- CI note: Update your CI runners to install the CUPS development package (for example `libcups2-dev` on Debian/Ubuntu) before building and running integration tests. The repository's integration tests that exercise POSIX bindings require those headers/libraries.
+
+- Compatibility guidance: By design, this repository requires destination-based CUPS APIs (libcups >= 1.6). If you need to support very old systems that lack these APIs, consider one of the following:
+  - Provide a compatibility branch or patch that implements a fallback using older PPD helpers (note: those APIs are deprecated and brittle).
+  - Ship prebuilt binaries for the older target environments you need to support.
+  - Encourage users on older systems to upgrade libcups or use a newer distribution image.
 
 Contact
 - Issues & PRs: https://github.com/ssxv/node-printer
