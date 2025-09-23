@@ -1,6 +1,6 @@
 {
   "name": "@ssxv/node-printer",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Cross-platform N-API native printing bindings for Node.js (Windows & POSIX/CUPS). Requires Node.js >=18 and libcups >=1.6 for POSIX builds.",
   "main": "printer.js",
   "scripts": {
