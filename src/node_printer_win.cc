@@ -345,6 +345,148 @@ Napi::Array GetPrintersWrapped(const Napi::CallbackInfo& args) {
   return result;
 }
 
+Napi::Value GetPrinterWrapped(const Napi::CallbackInfo& args) {
+  Napi::Env env = args.Env();
+  if (args.Length() < 1 || !args[0].IsString()) {
+    Napi::TypeError::New(env, "printer name required").ThrowAsJavaScriptException();
+    return env.Null();
+  }
+  
+  std::string printerName = args[0].As<Napi::String>().Utf8Value();
+  std::vector<uint16_t> printerNameW = utf8_to_w(printerName);
+  
+  // Open a handle to the printer (direct approach from old implementation)
+  PrinterHandle printerHandle((LPWSTR)printerNameW.data());
+  if (!printerHandle.isOk()) {
+    ErrorInfo info = getLastErrorInfo();
+    std::ostringstream s;
+    s << "error on PrinterHandle for printer '" << printerName << "'";
+    Napi::Error e = makeNapiErrorWithCode(env, s.str(), info);
+    e.ThrowAsJavaScriptException();
+    return env.Null();
+  }
+  
+  DWORD printersSizeBytes = 0;
+  GetPrinterW((HANDLE)printerHandle, 2, NULL, printersSizeBytes, &printersSizeBytes);
+  if (printersSizeBytes == 0) {
+    Napi::Error::New(env, "Error on allocating memory for printer").ThrowAsJavaScriptException();
+    return env.Null();
+  }
+  
+  std::vector<BYTE> buffer(printersSizeBytes);
+  PRINTER_INFO_2W* printer = reinterpret_cast<PRINTER_INFO_2W*>(buffer.data());
+  
+  BOOL bOK = GetPrinterW((HANDLE)printerHandle, 2, (LPBYTE)printer, printersSizeBytes, &printersSizeBytes);
+  if (!bOK) {
+    ErrorInfo info = getLastErrorInfo();
+    Napi::Error e = makeNapiErrorWithCode(env, "Error on GetPrinter", info);
+    e.ThrowAsJavaScriptException();
+    return env.Null();
+  }
+  
+  Napi::Object result = Napi::Object::New(env);
+  parsePrinterInfo(printer, env, result);
+  return result;
+}
+
+Napi::Value GetDefaultPrinterNameWrapped(const Napi::CallbackInfo& args) {
+  Napi::Env env = args.Env();
+  std::string defaultPrinter = getDefaultPrinterUtf8();
+  if (defaultPrinter.empty()) {
+    return env.Undefined();
+  }
+  return Napi::String::New(env, defaultPrinter);
+}
+
+static const std::map<std::string, DWORD> getJobCommandMap() {
+  static std::map<std::string, DWORD> result;
+  if (!result.empty()) return result;
+  
+  // Job control commands from old implementation
+  result["CANCEL"] = JOB_CONTROL_CANCEL;
+  result["PAUSE"] = JOB_CONTROL_PAUSE;
+  result["RESTART"] = JOB_CONTROL_RESTART;
+  result["RESUME"] = JOB_CONTROL_RESUME;
+  result["DELETE"] = JOB_CONTROL_DELETE;
+  result["SENT-TO-PRINTER"] = JOB_CONTROL_SENT_TO_PRINTER;
+  result["LAST-PAGE-EJECTED"] = JOB_CONTROL_LAST_PAGE_EJECTED;
+#ifdef JOB_CONTROL_RETAIN
+  result["RETAIN"] = JOB_CONTROL_RETAIN;
+#endif
+  return result;
+}
+
+Napi::Value GetSupportedJobCommandsWrapped(const Napi::CallbackInfo& args) {
+  Napi::Env env = args.Env();
+  const auto& commandMap = getJobCommandMap();
+  Napi::Array result = Napi::Array::New(env, commandMap.size());
+  uint32_t i = 0;
+  for (const auto& kv : commandMap) {
+    result.Set(i++, Napi::String::New(env, kv.first));
+  }
+  return result;
+}
+
+Napi::Value GetSupportedPrintFormatsWrapped(const Napi::CallbackInfo& args) {
+  Napi::Env env = args.Env();
+  Napi::Array result = Napi::Array::New(env);
+  uint32_t formatIndex = 0;
+
+  DWORD numBytes = 0, processorsNum = 0;
+  LPWSTR nullVal = NULL;
+
+  // Check the amount of bytes required
+  EnumPrintProcessorsW(nullVal, nullVal, 1, (LPBYTE)(NULL), numBytes, &numBytes, &processorsNum);
+  if (numBytes == 0) {
+    // Fallback to basic formats if enumeration fails
+    result.Set(formatIndex++, Napi::String::New(env, "RAW"));
+    result.Set(formatIndex++, Napi::String::New(env, "TEXT"));
+    result.Set(formatIndex++, Napi::String::New(env, "EMF"));
+    return result;
+  }
+
+  std::vector<BYTE> processorBuffer(numBytes);
+  PRINTPROCESSOR_INFO_1W* processors = reinterpret_cast<PRINTPROCESSOR_INFO_1W*>(processorBuffer.data());
+  
+  // Retrieve processors
+  BOOL isOK = EnumPrintProcessorsW(nullVal, nullVal, 1, (LPBYTE)processors, numBytes, &numBytes, &processorsNum);
+  if (!isOK) {
+    ErrorInfo info = getLastErrorInfo();
+    Napi::Error e = makeNapiErrorWithCode(env, "Error on EnumPrintProcessorsW", info);
+    e.ThrowAsJavaScriptException();
+    return result;
+  }
+
+  PRINTPROCESSOR_INFO_1W* pProcessor = processors;
+  for (DWORD processor_i = 0; processor_i < processorsNum; ++processor_i, ++pProcessor) {
+    numBytes = 0;
+    DWORD dataTypesNum = 0;
+    EnumPrintProcessorDatatypesW(nullVal, pProcessor->pName, 1, (LPBYTE)(NULL), numBytes, &numBytes, &dataTypesNum);
+    
+    if (numBytes == 0) continue;
+    
+    std::vector<BYTE> dataTypeBuffer(numBytes);
+    DATATYPES_INFO_1W* dataTypes = reinterpret_cast<DATATYPES_INFO_1W*>(dataTypeBuffer.data());
+    
+    isOK = EnumPrintProcessorDatatypesW(nullVal, pProcessor->pName, 1, (LPBYTE)dataTypes, numBytes, &numBytes, &dataTypesNum);
+    if (!isOK) {
+      ErrorInfo info = getLastErrorInfo();
+      Napi::Error e = makeNapiErrorWithCode(env, "Error on EnumPrintProcessorDatatypesW", info);
+      e.ThrowAsJavaScriptException();
+      return result;
+    }
+
+    DATATYPES_INFO_1W* pDataType = dataTypes;
+    for (DWORD j = 0; j < dataTypesNum; ++j, ++pDataType) {
+      if (pDataType->pName && *pDataType->pName) {
+        result.Set(formatIndex++, Napi::String::New(env, ws_to_utf8(pDataType->pName)));
+      }
+    }
+  }
+
+  return result;
+}
+
 Napi::Value PrintDirectWrapped(const Napi::CallbackInfo& args) {
   Napi::Env env = args.Env();
   if (args.Length() < 4) {
@@ -369,6 +511,12 @@ Napi::Value PrintDirectWrapped(const Napi::CallbackInfo& args) {
   std::string printerUtf8 = args[1].ToString().Utf8Value();
   std::string docnameUtf8 = args[2].ToString().Utf8Value();
   std::string typeUtf8 = args[3].ToString().Utf8Value();
+  
+  // Handle options parameter to match POSIX implementation
+  Napi::Object optionsObj = Napi::Object::New(env);
+  if (args.Length() > 4 && args[4].IsObject()) {
+    optionsObj = args[4].As<Napi::Object>();
+  }
 
   // Create a Promise and an AsyncWorker that will perform printing off the main thread
   auto deferred = Napi::Promise::Deferred::New(env);
@@ -557,13 +705,21 @@ Napi::Value PrintDirectWrapped(const Napi::CallbackInfo& args) {
 
 Napi::Value PrintFileWrapped(const Napi::CallbackInfo& args) {
   Napi::Env env = args.Env();
-  if (args.Length() < 1) {
-    Napi::TypeError::New(env, "printFile requires at least 1 argument: filename").ThrowAsJavaScriptException();
+  if (args.Length() < 3) {
+    Napi::TypeError::New(env, "printFile requires at least 3 arguments: filename, docname, printer").ThrowAsJavaScriptException();
     return env.Null();
   }
   std::string filename = args[0].ToString().Utf8Value();
-  std::string docname = (args.Length() > 1 && !args[1].IsUndefined()) ? args[1].ToString().Utf8Value() : filename;
-  std::string printer = (args.Length() > 2 && !args[2].IsUndefined()) ? args[2].ToString().Utf8Value() : std::string();
+  std::string docname = args[1].ToString().Utf8Value();
+  std::string printer = args[2].ToString().Utf8Value();
+  
+  // Handle options parameter (4th argument) - for future extensibility
+  Napi::Object optionsObj = Napi::Object::New(env);
+  if (args.Length() > 3 && args[3].IsObject()) {
+    optionsObj = args[3].As<Napi::Object>();
+    // Note: Options are parsed but not currently used in Windows implementation
+    // This ensures parameter compatibility with POSIX implementation
+  }
 
   if (printer.empty()) {
     printer = getDefaultPrinterUtf8();
@@ -665,8 +821,177 @@ Napi::Value PrintFileWrapped(const Napi::CallbackInfo& args) {
   return deferred.Promise();
 }
 
+Napi::Value GetJobWrapped(const Napi::CallbackInfo& args) {
+  Napi::Env env = args.Env();
+  if (args.Length() < 2) {
+    Napi::TypeError::New(env, "printer name and job id required").ThrowAsJavaScriptException();
+    return env.Null();
+  }
+
+  std::string printerName = args[0].ToString().Utf8Value();
+  int32_t jobId = args[1].As<Napi::Number>().Int32Value();
+  
+  if (jobId < 0) {
+    Napi::Error::New(env, "Wrong job number").ThrowAsJavaScriptException();
+    return env.Null();
+  }
+
+  std::vector<uint16_t> printerNameW = utf8_to_w(printerName);
+  
+  // Open a handle to the printer
+  PrinterHandle printerHandle((LPWSTR)printerNameW.data());
+  if (!printerHandle.isOk()) {
+    ErrorInfo info = getLastErrorInfo();
+    std::ostringstream s;
+    s << "error on PrinterHandle for printer '" << printerName << "'";
+    Napi::Error e = makeNapiErrorWithCode(env, s.str(), info);
+    e.ThrowAsJavaScriptException();
+    return env.Null();
+  }
+
+  DWORD sizeBytes = 0;
+  GetJobW((HANDLE)printerHandle, static_cast<DWORD>(jobId), 2, NULL, sizeBytes, &sizeBytes);
+  if (sizeBytes == 0) {
+    Napi::Error::New(env, "Error on allocating memory for job").ThrowAsJavaScriptException();
+    return env.Null();
+  }
+
+  std::vector<BYTE> buffer(sizeBytes);
+  JOB_INFO_2W* job = reinterpret_cast<JOB_INFO_2W*>(buffer.data());
+  
+  BOOL bOK = GetJobW((HANDLE)printerHandle, static_cast<DWORD>(jobId), 2, (LPBYTE)job, sizeBytes, &sizeBytes);
+  if (!bOK) {
+    ErrorInfo info = getLastErrorInfo();
+    Napi::Error e = makeNapiErrorWithCode(env, "Error on GetJob. Wrong job id or it was deleted", info);
+    e.ThrowAsJavaScriptException();
+    return env.Null();
+  }
+
+  Napi::Object result = Napi::Object::New(env);
+  parseJobObject(job, env, result);
+  return result;
+}
+
+Napi::Value SetJobWrapped(const Napi::CallbackInfo& args) {
+  Napi::Env env = args.Env();
+  if (args.Length() < 3) {
+    Napi::TypeError::New(env, "printer name, job id and command required").ThrowAsJavaScriptException();
+    return env.Null();
+  }
+
+  std::string printerName = args[0].ToString().Utf8Value();
+  int32_t jobId = args[1].As<Napi::Number>().Int32Value();
+  std::string jobCommand = args[2].ToString().Utf8Value();
+  
+  if (jobId < 0) {
+    Napi::Error::New(env, "Wrong job number").ThrowAsJavaScriptException();
+    return env.Null();
+  }
+
+  const auto& commandMap = getJobCommandMap();
+  auto itJobCommand = commandMap.find(jobCommand);
+  if (itJobCommand == commandMap.end()) {
+    Napi::Error::New(env, "wrong job command. use getSupportedJobCommands to see the possible commands").ThrowAsJavaScriptException();
+    return env.Null();
+  }
+
+  std::vector<uint16_t> printerNameW = utf8_to_w(printerName);
+  
+  // Open a handle to the printer
+  PrinterHandle printerHandle((LPWSTR)printerNameW.data());
+  if (!printerHandle.isOk()) {
+    ErrorInfo info = getLastErrorInfo();
+    std::ostringstream s;
+    s << "error on PrinterHandle for printer '" << printerName << "'";
+    Napi::Error e = makeNapiErrorWithCode(env, s.str(), info);
+    e.ThrowAsJavaScriptException();
+    return env.Null();
+  }
+
+  BOOL bOK = SetJobW((HANDLE)printerHandle, static_cast<DWORD>(jobId), 0, NULL, itJobCommand->second);
+  if (!bOK) {
+    ErrorInfo info = getLastErrorInfo();
+    Napi::Error e = makeNapiErrorWithCode(env, "Error on SetJob", info);
+    e.ThrowAsJavaScriptException();
+    return env.Null();
+  }
+
+  return Napi::Boolean::New(env, true);
+}
+
+Napi::Value GetPrinterDriverOptionsWrapped(const Napi::CallbackInfo& args) {
+  Napi::Env env = args.Env();
+  if (args.Length() < 1 || !args[0].IsString()) {
+    Napi::TypeError::New(env, "printer name required").ThrowAsJavaScriptException();
+    return env.Null();
+  }
+  
+  std::string printerName = args[0].As<Napi::String>().Utf8Value();
+  std::vector<uint16_t> printerNameW = utf8_to_w(printerName);
+  
+  // Open a handle to the printer
+  PrinterHandle printerHandle((LPWSTR)printerNameW.data());
+  if (!printerHandle.isOk()) {
+    ErrorInfo info = getLastErrorInfo();
+    Napi::Error e = makeNapiErrorWithCode(env, "Error opening printer", info);
+    e.ThrowAsJavaScriptException();
+    return env.Null();
+  }
+  
+  // Get printer information
+  DWORD printersSizeBytes = 0;
+  GetPrinterW((HANDLE)printerHandle, 2, NULL, printersSizeBytes, &printersSizeBytes);
+  if (printersSizeBytes == 0) {
+    ErrorInfo info = getLastErrorInfo();
+    Napi::Error e = makeNapiErrorWithCode(env, "Error getting printer info size", info);
+    e.ThrowAsJavaScriptException();
+    return env.Null();
+  }
+  
+  std::vector<BYTE> buffer(printersSizeBytes);
+  PRINTER_INFO_2W* printer = reinterpret_cast<PRINTER_INFO_2W*>(buffer.data());
+  
+  BOOL bOK = GetPrinterW((HANDLE)printerHandle, 2, (LPBYTE)printer, printersSizeBytes, &printersSizeBytes);
+  if (!bOK) {
+    ErrorInfo info = getLastErrorInfo();
+    Napi::Error e = makeNapiErrorWithCode(env, "Error getting printer info", info);
+    e.ThrowAsJavaScriptException();
+    return env.Null();
+  }
+  
+  // Create driver options object (basic implementation for Windows)
+  Napi::Object driverOptions = Napi::Object::New(env);
+  
+  // Add basic printer properties as driver options
+  if (printer->pDriverName && *printer->pDriverName) {
+    driverOptions.Set("DriverName", Napi::String::New(env, ws_to_utf8(printer->pDriverName)));
+  }
+  if (printer->pDatatype && *printer->pDatatype) {
+    driverOptions.Set("DataType", Napi::String::New(env, ws_to_utf8(printer->pDatatype)));
+  }
+  if (printer->pPrintProcessor && *printer->pPrintProcessor) {
+    driverOptions.Set("PrintProcessor", Napi::String::New(env, ws_to_utf8(printer->pPrintProcessor)));
+  }
+  if (printer->pParameters && *printer->pParameters) {
+    driverOptions.Set("Parameters", Napi::String::New(env, ws_to_utf8(printer->pParameters)));
+  }
+  
+  // Add printer status as an option
+  driverOptions.Set("Status", Napi::Number::New(env, printer->Status));
+  driverOptions.Set("Attributes", Napi::Number::New(env, printer->Attributes));
+  
+  return driverOptions;
+}
+
 Napi::Object Init(Napi::Env env, Napi::Object exports) {
   exports.Set("getPrinters", Napi::Function::New(env, GetPrintersWrapped));
+  exports.Set("getPrinter", Napi::Function::New(env, GetPrinterWrapped));
+  exports.Set("getDefaultPrinterName", Napi::Function::New(env, GetDefaultPrinterNameWrapped));
+  exports.Set("getPrinterDriverOptions", Napi::Function::New(env, GetPrinterDriverOptionsWrapped));
+  exports.Set("getSupportedJobCommands", Napi::Function::New(env, GetSupportedJobCommandsWrapped));
+  exports.Set("getSupportedPrintFormats", Napi::Function::New(env, GetSupportedPrintFormatsWrapped));
+  exports.Set("getJob", Napi::Function::New(env, GetJobWrapped));
+  exports.Set("setJob", Napi::Function::New(env, SetJobWrapped));
   exports.Set("printDirect", Napi::Function::New(env, PrintDirectWrapped));
   exports.Set("printFile", Napi::Function::New(env, PrintFileWrapped));
   return exports;
