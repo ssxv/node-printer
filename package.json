@@ -46,7 +46,7 @@
   },
   "homepage": "https://github.com/ssxv/node-printer#readme",
   "devDependencies": {
-    "node-gyp": ">=7.0.0",
+    "node-gyp": ">=12.2.0",
     "prebuild": "^13.0.1",
     "tap": "^21.1.0"
   }
