@@ -37,6 +37,14 @@ jobs:
             arch: "x64"
             runner: ubuntu-latest
             platform: linux
+          - node: "24.x"
+            arch: "x64"
+            runner: windows-latest
+            platform: win32
+          - node: "24.x"
+            arch: "x64"
+            runner: ubuntu-latest
+            platform: linux
     steps:
       - uses: actions/checkout@v4
       - name: Setup Node
