@@ -541,21 +541,8 @@ Napi::Value PrintDirectWrapped(const Napi::CallbackInfo& args) {
   wd->errorPrefix = "PrintDirect";
 
   bool usedTemp = false;
-  Napi::Reference<Napi::Buffer<char>> bufRef;
-  bool haveBufferRef = false;
-  if (args[0].IsBuffer()) {
-    Napi::Buffer<char> b = args[0].As<Napi::Buffer<char>>();
-    if (dataLen <= STREAM_THRESHOLD) {
-      // keep buffer alive via reference and avoid copying
-      bufRef = Napi::Persistent(b);
-      haveBufferRef = true;
-    } else {
-      // large buffer -> write to temp file for streaming
-      // fallthrough to write using dataVec
-    }
-  }
 
-  if (!haveBufferRef && dataLen > STREAM_THRESHOLD) {
+  if (dataLen > STREAM_THRESHOLD) {
     // write to temp file and let worker stream it
     char tmpPath[MAX_PATH];
     if (GetTempPathA(MAX_PATH, tmpPath) > 0) {
@@ -579,10 +566,7 @@ Napi::Value PrintDirectWrapped(const Napi::CallbackInfo& args) {
   class PrintWorker : public Napi::AsyncWorker {
   public:
     PrintWorker(Napi::Env env, WorkerData* d, Napi::Promise::Deferred def)
-      : Napi::AsyncWorker(env), data(d), deferred(def), hasBufferRef(false) {}
-
-    PrintWorker(Napi::Env env, WorkerData* d, Napi::Promise::Deferred def, Napi::Reference<Napi::Buffer<char>>&& ref)
-      : Napi::AsyncWorker(env), data(d), deferred(def), bufferRef(std::move(ref)), hasBufferRef(true) {}
+      : Napi::AsyncWorker(env), data(d), deferred(def) {}
 
     ~PrintWorker() { delete data; }
 
@@ -647,14 +631,6 @@ Napi::Value PrintDirectWrapped(const Napi::CallbackInfo& args) {
           }
         }
         ifs.close();
-      } else if (hasBufferRef) {
-        auto buf = bufferRef.Value();
-        written = WritePrinter((HANDLE)printerHandle, (LPVOID)buf.Data(), (DWORD)buf.Length(), &dwBytesWritten);
-        if (!written || dwBytesWritten != (DWORD)buf.Length()) {
-          data->errorInfo = getLastErrorInfo();
-          data->errorPrefix = "WritePrinter";
-          return;
-        }
       } else {
         written = WritePrinter((HANDLE)printerHandle, (LPVOID)data->data.data(), (DWORD)data->data.size(), &dwBytesWritten);
         if (!written || dwBytesWritten != (DWORD)data->data.size()) {
@@ -689,16 +665,9 @@ Napi::Value PrintDirectWrapped(const Napi::CallbackInfo& args) {
   private:
     WorkerData* data;
     Napi::Promise::Deferred deferred;
-    Napi::Reference<Napi::Buffer<char>> bufferRef;
-    bool hasBufferRef;
   };
 
-  PrintWorker* w = nullptr;
-  if (haveBufferRef) {
-    w = new PrintWorker(env, wd, deferred, std::move(bufRef));
-  } else {
-    w = new PrintWorker(env, wd, deferred);
-  }
+  PrintWorker* w = new PrintWorker(env, wd, deferred);
   w->Queue();
   return deferred.Promise();
 }
