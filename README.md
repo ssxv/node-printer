@@ -22,7 +22,7 @@ Cross-platform Node.js native printing bindings (Windows & POSIX/CUPS)
 Documentation is under the `docs/` folder. Start at `docs/index.md` for an overview and links; the architecture overview is in `docs/ARCHITECTURE.md`.
 
 ## Supported Node.js versions
-- Node.js 18.x, 20.x, 22.x
+- Node.js 18.x, 20.x, 22.x, 24.x
 
 ## Quick start — Development (Windows)
 
