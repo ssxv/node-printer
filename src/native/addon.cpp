@@ -312,14 +312,58 @@ Napi::Value PrintFile(const Napi::CallbackInfo& info) {
     
     try {
         PrintFileRequest request;
+        
+        // Extract filename and printer from separate arguments
         request.filename = info[0].As<Napi::String>().Utf8Value();
         request.printer = info[1].As<Napi::String>().Utf8Value();
         
+        // Extract options from third argument if present
         if (info.Length() > 2 && info[2].IsObject()) {
             request.options = jsTorintOptions(info[2]);
         }
         
         int jobId = g_jobAPI->printFile(request);
+        return Napi::Number::New(env, jobId);
+    } catch (const std::exception& e) {
+        Napi::Error::New(env, e.what()).ThrowAsJavaScriptException();
+        return env.Null();
+    }
+}
+
+Napi::Value PrintDirect(const Napi::CallbackInfo& info) {
+    Napi::Env env = info.Env();
+    
+    if (info.Length() < 2) {
+        Napi::TypeError::New(env, "Missing arguments: data and printer required").ThrowAsJavaScriptException();
+        return env.Null();
+    }
+    
+    try {
+        PrintRawRequest request;
+        
+        // Extract data from first argument
+        if (info[0].IsBuffer()) {
+            Napi::Buffer<uint8_t> buffer = info[0].As<Napi::Buffer<uint8_t>>();
+            request.data.assign(buffer.Data(), buffer.Data() + buffer.Length());
+        } else {
+            Napi::TypeError::New(env, "Data must be a Buffer").ThrowAsJavaScriptException();
+            return env.Null();
+        }
+        
+        // Extract printer from second argument
+        request.printer = info[1].As<Napi::String>().Utf8Value();
+        
+        // Extract format/type from third argument if present
+        if (info.Length() > 2 && info[2].IsString()) {
+            request.format = info[2].As<Napi::String>().Utf8Value();
+        }
+        
+        // Extract options from fourth argument if present
+        if (info.Length() > 3 && info[3].IsObject()) {
+            request.options = jsTorintOptions(info[3]);
+        }
+        
+        int jobId = g_jobAPI->printRaw(request);
         return Napi::Number::New(env, jobId);
     } catch (const std::exception& e) {
         Napi::Error::New(env, e.what()).ThrowAsJavaScriptException();
@@ -394,84 +438,6 @@ Napi::Value SetJob(const Napi::CallbackInfo& info) {
         
         g_jobAPI->setJob(printer, jobId, command);
         return env.Undefined();
-    } catch (const std::exception& e) {
-        Napi::Error::New(env, e.what()).ThrowAsJavaScriptException();
-        return env.Null();
-    }
-}
-
-Napi::Value PrintDirect(const Napi::CallbackInfo& info) {
-    Napi::Env env = info.Env();
-    
-    // Handle both object-style and legacy positional arguments
-    if (info.Length() < 1) {
-        Napi::TypeError::New(env, "Missing arguments").ThrowAsJavaScriptException();
-        return env.Null();
-    }
-    
-    try {
-        PrintRawRequest request;
-        
-        if (info[0].IsObject() && !info[0].IsBuffer()) {
-            // New object-style API
-            Napi::Object args = info[0].As<Napi::Object>();
-            
-            if (!args.Has("data") || !args.Has("printer")) {
-                Napi::TypeError::New(env, "Missing 'data' or 'printer' property").ThrowAsJavaScriptException();
-                return env.Null();
-            }
-            
-            // Get data
-            if (args.Get("data").IsBuffer()) {
-                Napi::Buffer<uint8_t> buffer = args.Get("data").As<Napi::Buffer<uint8_t>>();
-                request.data.assign(buffer.Data(), buffer.Data() + buffer.Length());
-            } else {
-                Napi::TypeError::New(env, "Data must be a Buffer").ThrowAsJavaScriptException();
-                return env.Null();
-            }
-            
-            request.printer = args.Get("printer").As<Napi::String>().Utf8Value();
-            
-            if (args.Has("type") && args.Get("type").IsString()) {
-                request.format = args.Get("type").As<Napi::String>().Utf8Value();
-            }
-            
-            if (args.Has("options")) {
-                request.options = jsTorintOptions(args.Get("options"));
-            }
-        } else {
-            // Legacy positional arguments: (data, printer, type, docname, options)
-            if (info.Length() < 2) {
-                Napi::TypeError::New(env, "Missing printer argument").ThrowAsJavaScriptException();
-                return env.Null();
-            }
-            
-            // Get data
-            if (info[0].IsBuffer()) {
-                Napi::Buffer<uint8_t> buffer = info[0].As<Napi::Buffer<uint8_t>>();
-                request.data.assign(buffer.Data(), buffer.Data() + buffer.Length());
-            } else {
-                Napi::TypeError::New(env, "Data must be a Buffer").ThrowAsJavaScriptException();
-                return env.Null();
-            }
-            
-            request.printer = info[1].As<Napi::String>().Utf8Value();
-            
-            if (info.Length() > 2 && info[2].IsString()) {
-                request.format = info[2].As<Napi::String>().Utf8Value();
-            }
-            
-            if (info.Length() > 3 && info[3].IsString()) {
-                request.options.jobName = info[3].As<Napi::String>().Utf8Value();
-            }
-            
-            if (info.Length() > 4 && info[4].IsObject()) {
-                request.options = jsTorintOptions(info[4]);
-            }
-        }
-        
-        int jobId = g_jobAPI->printRaw(request);
-        return Napi::Number::New(env, jobId);
     } catch (const std::exception& e) {
         Napi::Error::New(env, e.what()).ThrowAsJavaScriptException();
         return env.Null();

@@ -2,7 +2,7 @@
 // Provides only core printing functions with backward-compatible API (callbacks) and Promise-based usage.
 // For full functionality, use the modern JS-first API: require('@ssxv/node-printer')
 
-const binding = require("../../binding");
+const binding = require("../../binding-legacy");
 
 function toDateOrNull(n) {
   if (n === 0 || n == null) return null;

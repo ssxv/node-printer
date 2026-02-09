@@ -93,11 +93,11 @@ export const jobs = {
       
       const normalizedOptions = validateAndNormalizePrintOptions(options.options);
       
-      const jobId = await binding.printFile({
-        filename: options.file,
-        printer: options.printer,
-        ...normalizedOptions
-      });
+      const jobId = await binding.printFile(
+        options.file,
+        options.printer,
+        normalizedOptions
+      );
       
       if (!jobId || jobId <= 0) {
         throw new PrinterError('Failed to queue print job', 'UNKNOWN');
@@ -124,12 +124,12 @@ export const jobs = {
       
       const normalizedOptions = validateAndNormalizePrintOptions(options.options);
       
-      const jobId = await binding.printDirect({
-        data: options.data,
-        printer: options.printer,
-        type: options.format || 'RAW',
-        ...normalizedOptions
-      });
+      const jobId = await binding.printDirect(
+        options.data,
+        options.printer,
+        options.format || 'RAW',
+        normalizedOptions
+      );
       
       if (!jobId || jobId <= 0) {
         throw new PrinterError('Failed to queue print job', 'UNKNOWN');
