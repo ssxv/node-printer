@@ -1,19 +1,35 @@
 {
   "name": "@ssxv/node-printer",
-  "version": "0.1.6",
+  "version": "2.0.0",
   "description": "Cross-platform N-API native printing bindings for Node.js (Windows & POSIX/CUPS). Requires Node.js >=18 and libcups >=1.6 for POSIX builds.",
-  "main": "printer.js",
+  "main": "lib/js/index.js",
+  "exports": {
+    ".": {
+      "import": "./lib/js/index.js",
+      "require": "./lib/js/index.js",
+      "types": "./lib/js/types.d.ts"
+    },
+    "./printer": {
+      "require": "./printer.js",
+      "types": "./types/index.d.ts"
+    }
+  },
   "scripts": {
     "install": "prebuild-install || node-gyp rebuild",
     "build": "node-gyp rebuild",
-    "test": "tap --disable-coverage test/unit/*.test.js"
+    "build:ts": "tsc",
+    "build:all": "npm run build:ts && npm run build",
+    "test": "tap --disable-coverage test/unit/*.test.js",
+    "prepublishOnly": "npm run build:ts"
   },
   "keywords": [
     "printer",
-    "napi",
+    "napi", 
     "native",
     "windows",
-    "printing"
+    "printing",
+    "cups",
+    "cross-platform"
   ],
   "author": {
     "name": "Satyendra Singh",
@@ -26,6 +42,7 @@
   "files": [
     "printer.js",
     "index.js",
+    "lib/",
     "binding.gyp",
     "src/",
     "types/index.d.ts",
@@ -35,7 +52,7 @@
     "node-addon-api": "^5.0.0",
     "prebuild-install": "^7.0.1"
   },
-  "types": "types/index.d.ts",
+  "types": "lib/js/types.d.ts",
   "gypfile": true,
   "repository": {
     "type": "git",
@@ -47,7 +64,9 @@
   "homepage": "https://github.com/ssxv/node-printer#readme",
   "devDependencies": {
     "node-gyp": ">=12.2.0",
-    "prebuild": "^13.0.1",
-    "tap": "^21.1.0"
+    "prebuild": "^13.0.1", 
+    "tap": "^21.1.0",
+    "typescript": "^5.0.0",
+    "@types/node": "^18.0.0"
   }
 }

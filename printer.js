@@ -1,7 +1,8 @@
-// High-level wrapper for node-printer-new
-// Provides backward-compatible API (callbacks) and Promise-based usage.
+// Simplified legacy API wrapper
+// Provides only core printing functions with backward-compatible API (callbacks) and Promise-based usage.
+// For full functionality, use the modern JS-first API: require('@ssxv/node-printer')
 
-const binding = require("./index");
+const binding = require("./binding");
 
 function toDateOrNull(n) {
   if (n === 0 || n == null) return null;
@@ -58,73 +59,17 @@ module.exports.getPrinters = promiseify(function getPrinters() {
   return Array.isArray(result) ? result.map(normalizePrinter) : result;
 });
 
-module.exports.getDefaultPrinterName = promiseify(
-  function getDefaultPrinterName() {
-    const name =
-      binding.getDefaultPrinterName && binding.getDefaultPrinterName();
-    if (name) return name;
-
-    // Fallback: search printers for isDefault flag
-    const printers = (binding.getPrinters && binding.getPrinters()) || [];
-    if (Array.isArray(printers)) {
-      for (let i = 0; i < printers.length; i++) {
-        if (printers[i] && printers[i].isDefault === true)
-          return printers[i].name;
-      }
-    }
-    // undefined if not found
-    return undefined;
-  }
-);
-
 module.exports.getPrinter = promiseify(function getPrinter(name) {
-  // allow name to be optional
-  if (!name)
-    name =
-      (binding.getDefaultPrinterName && binding.getDefaultPrinterName()) ||
-      undefined;
+  // allow name to be optional - use default printer if not specified
+  if (!name) {
+    const defaultName = binding.getDefaultPrinterName && binding.getDefaultPrinterName();
+    if (!defaultName) {
+      throw new Error('No printer name provided and no default printer available');
+    }
+    name = defaultName;
+  }
   const pr = binding.getPrinter(name);
   return pr && Array.isArray(pr.jobs) ? normalizePrinter(pr) : pr;
-});
-
-module.exports.getPrinterDriverOptions = promiseify(
-  function getPrinterDriverOptions(name) {
-    if (!name)
-      name =
-        (binding.getDefaultPrinterName && binding.getDefaultPrinterName()) ||
-        undefined;
-    return (
-      binding.getPrinterDriverOptions && binding.getPrinterDriverOptions(name)
-    );
-  }
-);
-
-module.exports.getSelectedPaperSize = promiseify(function getSelectedPaperSize(
-  name
-) {
-  const driver_options =
-    (binding.getPrinterDriverOptions &&
-      binding.getPrinterDriverOptions(name)) ||
-    {};
-  let selectedSize = "";
-  if (driver_options && driver_options.PageSize) {
-    Object.keys(driver_options.PageSize).forEach(function (key) {
-      if (driver_options.PageSize[key]) selectedSize = key;
-    });
-  }
-  return selectedSize;
-});
-
-module.exports.getJob = promiseify(function getJob(printerName, jobId) {
-  return binding.getJob && binding.getJob(printerName, jobId);
-});
-
-module.exports.setJob = promiseify(function setJob(
-  printerName,
-  jobId,
-  command
-) {
-  return binding.setJob && binding.setJob(printerName, jobId, command);
 });
 
 function wirePromiseOrSync(result, success, error) {
@@ -169,7 +114,14 @@ module.exports.printDirect = function printDirect(
       }
 
       const normalizedType = (type || "RAW").toString().toUpperCase();
-      const finalPrinter = printer || module.exports.getDefaultPrinterName();
+      let finalPrinter = printer;
+      if (!finalPrinter) {
+        const defaultName = binding.getDefaultPrinterName && binding.getDefaultPrinterName();
+        if (!defaultName) {
+          throw new Error('No printer specified and no default printer available');
+        }
+        finalPrinter = defaultName;
+      }
       const finalDocname = docname || "node print job";
 
       return binding.printDirect(
@@ -210,7 +162,14 @@ module.exports.printDirect = function printDirect(
       }
 
       const normalizedType = (type || "RAW").toString().toUpperCase();
-      const finalPrinter = printer || module.exports.getDefaultPrinterName();
+      let finalPrinter = printer;
+      if (!finalPrinter) {
+        const defaultName = binding.getDefaultPrinterName && binding.getDefaultPrinterName();
+        if (!defaultName) {
+          throw new Error('No printer specified and no default printer available');
+        }
+        finalPrinter = defaultName;
+      }
       const finalDocname = docname || "node print job";
 
       return binding.printDirect(
@@ -256,11 +215,11 @@ module.exports.printFile = function printFile(parameters, cb) {
       }
 
       // else, try to resolve default printer name
-      finalPrinter = module.exports.getDefaultPrinterName();
-    }
-
-    if (!finalPrinter) {
-      throw new Error("Printer parameter or default printer is not defined");
+      const defaultName = binding.getDefaultPrinterName && binding.getDefaultPrinterName();
+      if (!defaultName) {
+        throw new Error('No printer specified and no default printer available');
+      }
+      finalPrinter = defaultName;
     }
 
     if (!binding.printFile) {
@@ -291,17 +250,3 @@ module.exports.printFile = function printFile(parameters, cb) {
 
   return promise;
 };
-
-module.exports.getSupportedPrintFormats = promiseify(
-  function getSupportedPrintFormats() {
-    return (
-      binding.getSupportedPrintFormats && binding.getSupportedPrintFormats()
-    );
-  }
-);
-
-module.exports.getSupportedJobCommands = promiseify(
-  function getSupportedJobCommands() {
-    return binding.getSupportedJobCommands && binding.getSupportedJobCommands();
-  }
-);

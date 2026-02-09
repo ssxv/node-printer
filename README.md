@@ -2,22 +2,64 @@
 
 Cross-platform Node.js native printing bindings (Windows & POSIX/CUPS)
 
-`@ssxv/node-printer` is an N-API native addon exposing a small set of printing APIs to Node.js. The project started as a Windows (Winspool) proof-of-concept and has been extended to include POSIX (CUPS) support so the addon can be built and used on both Windows and Linux systems.
+`@ssxv/node-printer` is a JS-first, cross-platform Node.js printing library implemented as an N-API native addon. Originally a Windows (Winspool) proof-of-concept, it has been comprehensively refactored into a modern, enterprise-grade printing solution with unified APIs for both Windows and Linux systems.
 
 ## Key features
-- Exports:
-  - `getPrinters`
-  - `getPrinter`
-  - `getJob`
-  - `getPrinterDriverOptions`
-  - `printFile`
-  - `printDirect`
-  - `setJob`
-  - `getDefaultPrinterName`
-  - `getSupportedPrintFormats`
-  - `getSupportedJobCommands`.
-- Dual platform support: Win32 (Winspool) and POSIX (libcups).
-- Promise and callback-friendly JavaScript wrapper (`printer.js`).
+- **JS-first Architecture**: Modern TypeScript-based API with compile-time type safety
+- **Streamlined Legacy API**: 4 core functions for backward compatibility:
+  - `getPrinters` - List available printers
+  - `getPrinter` - Get specific printer details
+  - `printFile` - Print files with flexible options
+  - `printDirect` - Direct raw data printing
+- **Enhanced Error Handling**: Unified error normalization across Windows and POSIX platforms
+- **Dual platform support**: Win32 (Winspool) and POSIX (libcups) with shared abstraction layer
+- **Flexible API Options**:
+  - Legacy callback/promise API (`require('@ssxv/node-printer/printer')`)
+  - Modern JS-first API (`require('@ssxv/node-printer')`)
+- **Cross-platform Error Codes**: Standardized error types for consistent error handling
+
+## Architecture
+
+This library features a 5-phase modern architecture:
+
+1. **TypeScript Structure**: JS-first API with compile-time type safety
+2. **Platform Separation**: Dedicated Windows (WinSpool) and POSIX (CUPS) implementations
+3. **Native Abstraction Layer**: Unified C++ interface with 10 core functions
+4. **Error Normalization**: Cross-platform error mapping with enhanced error information
+5. **Backward Compatibility**: Streamlined legacy API maintaining zero breaking changes
+
+### Error Handling
+
+The library provides enhanced error handling with standardized error codes:
+
+- `PRINTER_NOT_FOUND` - Printer doesn't exist or unavailable
+- `PRINTER_OFFLINE` - Printer offline or stopped  
+- `ACCESS_DENIED` - Permission errors
+- `JOB_NOT_FOUND` - Print job not found
+- `DRIVER_ERROR` - Driver/PPD related issues
+- `FILE_NOT_FOUND` - File not accessible
+- `INVALID_ARGUMENTS` - Invalid parameters
+- `UNSUPPORTED_FORMAT` - Format not supported
+- `UNKNOWN` - Fallback category
+
+Errors include platform-specific details for enhanced debugging while maintaining cross-platform consistency.
+
+## API Reference
+
+### Legacy API (printer.js)
+- `getPrinters()` → `Promise<PrinterInfo[]>`
+- `getPrinter(name?)` → `Promise<PrinterInfo>` 
+- `printFile(options)` → `Promise<number>`
+- `printDirect(options)` → `Promise<number>`
+
+### Modern API (lib/js)
+- `printers.list()` → `Promise<Printer[]>`
+- `printers.get(name)` → `Promise<Printer>`
+- `printers.getDefault()` → `Promise<Printer>`
+- `jobs.printFile(filename, printer, options?)` → `Promise<number>`
+- `jobs.printRaw(data, printer, options?)` → `Promise<number>`
+- `jobs.get(printer, jobId)` → `Promise<JobInfo>`
+- Plus additional functions for complete printing workflow management
 
 Documentation is under the `docs/` folder. Start at `docs/index.md` for an overview and links; the architecture overview is in `docs/ARCHITECTURE.md`.
 
@@ -47,17 +89,58 @@ npm run build
 npm test
 ```
 
-## Usage example
+## Usage examples
 
+### Legacy API (Backward Compatible)
 ```javascript
-const printer = require('./printer');
+const printer = require('@ssxv/node-printer/printer');
 
-async function list() {
-  const printers = await printer.getPrinters();
-  console.log(printers);
+// List all printers
+const printers = await printer.getPrinters();
+console.log(printers);
+
+// Get specific printer
+const myPrinter = await printer.getPrinter('MyPrinter');
+
+// Print a file
+await printer.printFile({
+  filename: 'document.pdf',
+  printer: 'MyPrinter'
+});
+
+// Direct raw printing
+await printer.printDirect({
+  data: Buffer.from('Hello World'),
+  printer: 'MyPrinter',
+  type: 'RAW'
+});
+```
+
+### Modern JS-first API (Enhanced Features)
+```javascript
+const { printers, jobs, PrinterError } = require('@ssxv/node-printer');
+
+// List printers with enhanced info
+const printerList = await printers.list();
+
+// Get default printer
+const defaultPrinter = await printers.getDefault();
+
+// Print with enhanced options
+try {
+  const jobId = await jobs.printFile('document.pdf', 'MyPrinter', {
+    copies: 2,
+    paperSize: 'A4'
+  });
+  console.log('Print job started:', jobId);
+} catch (error) {
+  if (error instanceof PrinterError) {
+    console.log('Print error:', error.code, error.message);
+  }
 }
 
-list();
+// Get job status
+const jobInfo = await jobs.get('MyPrinter', jobId);
 ```
 
 ## Prebuilt binaries & publishing

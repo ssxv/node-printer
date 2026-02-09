@@ -6,7 +6,7 @@ t.test('no double reporting between promise and callback', async (t) => {
   // Preload the mock into require cache so the wrapper picks it up.
   const Module = require('module');
   const mock = binding;
-  const indexPath = require.resolve('../../index');
+  const indexPath = require.resolve('../../binding');
   const m = new Module(indexPath);
   m.filename = indexPath;
   m.exports = mock;

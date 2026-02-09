@@ -13,7 +13,7 @@ if (!useIntegration) {
   // Preload mock in require cache so the wrapper picks it up when requiring ../printer
   const Module = require('module');
   const mock = binding;
-  const indexPath = require.resolve('../../index');
+  const indexPath = require.resolve('../../binding');
   const m = new Module(indexPath);
   m.filename = indexPath;
   m.exports = mock;
