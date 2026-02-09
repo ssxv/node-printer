@@ -5,6 +5,7 @@ node_modules/
 build/
 build/Release/
 dist/
+lib/
 
 # Prebuild/prebuilt binary caches
 prebuilds/

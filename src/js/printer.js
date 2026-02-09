@@ -2,7 +2,7 @@
 // Provides only core printing functions with backward-compatible API (callbacks) and Promise-based usage.
 // For full functionality, use the modern JS-first API: require('@ssxv/node-printer')
 
-const binding = require("./binding");
+const binding = require("../../binding");
 
 function toDateOrNull(n) {
   if (n === 0 || n == null) return null;
@@ -54,11 +54,24 @@ function promiseify(fn) {
   };
 }
 
+/**
+ * Get list of all available printers
+ * @deprecated Use require('@ssxv/node-printer').printers.list() instead
+ * @param {function} [callback] - Optional Node.js style callback
+ * @returns {Promise<Array>} Promise resolving to array of printer objects
+ */
 module.exports.getPrinters = promiseify(function getPrinters() {
   const result = binding.getPrinters();
   return Array.isArray(result) ? result.map(normalizePrinter) : result;
 });
 
+/**
+ * Get detailed information about a specific printer
+ * @deprecated Use require('@ssxv/node-printer').printers.get(name) instead
+ * @param {string} [name] - Printer name (uses default if not specified)
+ * @param {function} [callback] - Optional Node.js style callback
+ * @returns {Promise<Object>} Promise resolving to printer details object
+ */
 module.exports.getPrinter = promiseify(function getPrinter(name) {
   // allow name to be optional - use default printer if not specified
   if (!name) {
@@ -89,6 +102,13 @@ function wirePromiseOrSync(result, success, error) {
   return false;
 }
 
+/**
+ * Print raw data directly to printer
+ * @deprecated Use require('@ssxv/node-printer').jobs.printRaw() instead
+ * @param {Object|Buffer} parameters - Print parameters object or raw data
+ * @param {function} [callback] - Optional Node.js style callback
+ * @returns {Promise<Object>} Promise resolving to print job result
+ */
 module.exports.printDirect = function printDirect(
   parameters /* or (data, printer, type, docname, options, callback) */
 ) {
@@ -185,6 +205,13 @@ module.exports.printDirect = function printDirect(
   }
 };
 
+/**
+ * Print a file to the specified printer
+ * @deprecated Use require('@ssxv/node-printer').jobs.printFile() instead
+ * @param {Object} parameters - Print parameters object with filename, printer, etc.
+ * @param {function} [cb] - Optional Node.js style callback
+ * @returns {Promise<Object>} Promise resolving to print job result
+ */
 module.exports.printFile = function printFile(parameters, cb) {
   // Accept both: printFile(params) and printFile(params, cb)
   if (arguments.length < 1 || typeof parameters !== "object") {

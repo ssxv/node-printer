@@ -13,7 +13,7 @@ t.test('no double reporting between promise and callback', async (t) => {
   m.loaded = true;
   require.cache[indexPath] = m;
 
-  const printer = require('../../printer');
+  const printer = require('@ssxv/node-printer/printer');
   let callbackCalled = 0;
   const p = printer.printFile({ filename: 'README.md' }, function(err, res){
     t.error(err);

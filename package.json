@@ -10,7 +10,7 @@
       "types": "./lib/js/types.d.ts"
     },
     "./printer": {
-      "require": "./printer.js",
+      "require": "./src/js/printer.js",
       "types": "./types/index.d.ts"
     }
   },

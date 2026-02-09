@@ -21,7 +21,7 @@ if (!useIntegration) {
   require.cache[indexPath] = m;
 }
 
-const printer = require('../../printer');
+const printer = require('@ssxv/node-printer/printer');
 
 t.test('printDirect handles large buffers (mock or native integration)', async (t) => {
   // Construct a buffer slightly larger than 4 MiB (4 * 1024 * 1024)

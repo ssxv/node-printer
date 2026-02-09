@@ -27,41 +27,9 @@ export type {
   PrinterDriverOptions
 } from './types';
 
-// Legacy API compatibility - import from existing wrapper
-const legacy = require('../../printer');
-
-// Backward compatibility exports (deprecated but maintained)
-// Only the 4 core legacy functions are supported
-/**
- * @deprecated Use printers.list() instead
- */
-export const getPrinters = legacy.getPrinters;
-
-/**
- * @deprecated Use printers.get(name) instead  
- */
-export const getPrinter = legacy.getPrinter;
-
-/**
- * @deprecated Use jobs.printRaw() instead
- */
-export const printDirect = legacy.printDirect;
-
-/**
- * @deprecated Use jobs.printFile() instead  
- */
-export const printFile = legacy.printFile;
-
-// Default export maintains compatibility
+// Default export - modern API only
 export default {
-  // New API
   printers: printers,
   jobs: jobs,
-  PrinterError: PrinterError,
-  
-  // Legacy API (deprecated) - Only 4 core functions
-  getPrinters,
-  getPrinter,
-  printDirect,
-  printFile
+  PrinterError: PrinterError
 };
