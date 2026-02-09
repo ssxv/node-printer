@@ -5,6 +5,10 @@ on:
     tags:
       - "v*"
 
+permissions:
+  contents: read
+  id-token: write
+
 jobs:
   build-prebuilds:
     name: Build prebuilds (Windows & Linux)
@@ -94,16 +98,15 @@ jobs:
     name: Create release and publish
     runs-on: ubuntu-latest
     needs: build-prebuilds
-    permissions:
-      contents: write
-      id-token: write
     steps:
       - uses: actions/checkout@v4
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          registry-url: 'https://registry.npmjs.org'
+          node-version: "24"
+          registry-url: "https://registry.npmjs.org"
+      - name: Install deps
+        run: npm ci
       - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
@@ -118,4 +121,4 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
       - name: Publish to npm
-        run: npm publish --access public --provenance --ignore-scripts
+        run: npm publish
