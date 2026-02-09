@@ -1,0 +1,9 @@
+{
+  "name": "node-printer-playground",
+  "version": "1.0.0",
+  "description": "Playground for testing @ssxv/node-printer library",
+  "private": true,
+  "dependencies": {
+    "@ssxv/node-printer": "file:.."
+  }
+}
