@@ -176,18 +176,28 @@ public:
       // Clean up temp file
       unlink(tempPath);
     } else {
-      // Use in-memory printing for small data
-      cups_file_t* fp = cupsTempFile2(nullptr, 0);
-      if (!fp) {
-        throw ErrorMappers::createCupsError("Failed to create CUPS temp file");
+      // Use temporary file for small data too (simpler and more reliable)
+      char tempPath[] = "/tmp/nodeprinter_small_XXXXXX";
+      int tempFd = mkstemp(tempPath);
+      if (tempFd == -1) {
+        throw ErrorMappers::createCupsError("Failed to create temporary file for small data");
       }
       
-      cupsFileWrite(fp, reinterpret_cast<const char*>(request.data.data()), request.data.size());
-      cupsFileClose(fp);
+      // Write data to temp file
+      ssize_t written = write(tempFd, request.data.data(), request.data.size());
+      close(tempFd);
       
-      // Print using CUPS API
-      jobId = cupsPrintFile(request.printer.c_str(), cupsFileStdout(), jobName.c_str(),
+      if (written != static_cast<ssize_t>(request.data.size())) {
+        unlink(tempPath);
+        throw ErrorMappers::createCupsError("Failed to write small data to temporary file");
+      }
+      
+      // Print using temp file
+      jobId = cupsPrintFile(request.printer.c_str(), tempPath, jobName.c_str(), 
                             options.getNumOptions(), options.get());
+      
+      // Clean up temp file
+      unlink(tempPath);
     }
     
     if (jobId == 0) {

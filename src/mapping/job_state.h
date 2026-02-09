@@ -69,7 +69,6 @@ std::string mapCupsJobState(int cupsState) {
         case IPP_JOB_STOPPED:
             return "error";   // Stopped usually indicates error
         case IPP_JOB_CANCELLED:
-        case IPP_JOB_CANCELED:
             return "canceled";
         case IPP_JOB_ABORTED:
             return "error";
