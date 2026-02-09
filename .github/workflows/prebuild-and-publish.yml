@@ -100,17 +100,13 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: ./prebuilds
-      - name: Create GitHub Release (uses PAT)
-        id: create_release
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: ${{ github.ref }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
-      - name: Upload prebuilds to Release (uses PAT)
+      - name: Create or update GitHub Release
         uses: softprops/action-gh-release@v1
         with:
           files: prebuilds/**/*
+          draft: false
+          prerelease: false
+          generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
       - name: Authenticate to npm
