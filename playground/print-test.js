@@ -13,7 +13,7 @@ const legacy = require("@ssxv/node-printer/printer");
 const testFile = path.join(__dirname, "test-files", "sample.txt");
 
 // Create test content
-const testContent = `Hello from node-printer playground!
+const testContent = `Hello from ssxv/node-printer playground!
 
 This is a test document generated at: ${new Date().toISOString()}
 

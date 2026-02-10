@@ -128,7 +128,7 @@ public:
       fileRequest.filename = tempFileStr;
       fileRequest.printer = request.printer;
       fileRequest.options = request.options;
-      fileRequest.options.jobName = WinUtils::ws_to_utf8(jobName);
+      fileRequest.options.jobName = WinUtils::ws_to_utf8(jobName.c_str());
       
       // Use printFile method for temp file
       try {
