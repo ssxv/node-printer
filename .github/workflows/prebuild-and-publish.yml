@@ -89,10 +89,9 @@ jobs:
         run: npm ci # Clean install - faster and more reliable than npm install
 
       # Step 5: Build both TypeScript and native addon
-      # npm run build:all = npm run build:ts && npm run build
       # This compiles TypeScript (src/js/*.ts → lib/js/*.js) AND compiles C++ native code
       - name: Build TypeScript and native addon
-        run: npm run build:all
+        run: npm run build
       # Step 6a: Create prebuild for Windows (only runs on Windows runners)
       # Prebuild creates a precompiled .node file that users can download
       # instead of compiling the C++ source code themselves
@@ -179,7 +178,7 @@ jobs:
 
       # Step 6: Publish the package to npm
       # The prepublishOnly script in package.json will run automatically before this
-      # which compiles TypeScript (npm run build:ts)
+      # which compiles TypeScript
       - name: Publish to npm
         run: npm publish
         # No NODE_AUTH_TOKEN needed because you're using npm's trusted publishing

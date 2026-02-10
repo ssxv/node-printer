@@ -16,10 +16,8 @@
   },
   "scripts": {
     "install": "prebuild-install || node-gyp rebuild",
-    "build": "node-gyp rebuild",
-    "build:ts": "tsc",
-    "build:all": "npm run build:ts && npm run build",
-    "prepublishOnly": "npm run build:ts"
+    "build": "tsc && node-gyp rebuild",
+    "prepublishOnly": "tsc"
   },
   "keywords": [
     "printer",
