@@ -19,6 +19,9 @@ async function testPrinting() {
     console.error('❌ Modern API print failed:', error.message);
   }
 
+  // trim jobList to keep just last 4 jobs for testing
+  jobList = jobList.slice(-4);
+
   console.log('\n📄 Test 2: Get jobs with options');
   try {
     const jobList = await jobs.list({ printer: printerName });
