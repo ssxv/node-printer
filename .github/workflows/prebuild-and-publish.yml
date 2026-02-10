@@ -1,30 +1,42 @@
+# GitHub Actions workflow for building precompiled native addons and publishing to npm
+# This workflow creates prebuilt binary files (.node) for Windows and Linux
+# so users don't need to compile from source when installing the package
 name: Prebuild and Publish
 
+# Trigger: Only runs when a version tag is pushed (e.g., v1.0.0, v2.1.3)
+# This ensures releases are only created for official version releases
 on:
   push:
     tags:
-      - "v*"
+      - "v*" # Matches any tag starting with 'v'
 
+# Permissions required for this workflow
 permissions:
-  contents: read
-  id-token: write
+  contents: read # Read repository contents (code, files)
+  id-token: write # Required for trusted publishing to npm (no API token needed)
 
 jobs:
+  # First job: Build precompiled native addons for different Node.js versions and platforms
+  # This creates .node binary files that users can download instead of compiling from source
   build-prebuilds:
     name: Build prebuilds (Windows & Linux)
-    runs-on: ${{ matrix.runner }}
+    runs-on: ${{ matrix.runner }} # Uses different runners for each platform
     strategy:
-      fail-fast: false
+      fail-fast: false # Continue building other combinations even if one fails
       matrix:
+        # Build matrix: Creates 8 total jobs (4 Node versions × 2 platforms)
+        # Each combination builds a separate precompiled binary
         include:
+          # Node.js 18.x builds
+          - node: "18.x"
+            arch: "x64" # 64-bit architecture
+            runner: windows-latest # Windows Server runner
+            platform: win32 # Platform identifier for prebuild
           - node: "18.x"
             arch: "x64"
-            runner: windows-latest
-            platform: win32
-          - node: "18.x"
-            arch: "x64"
-            runner: ubuntu-latest
+            runner: ubuntu-latest # Ubuntu Linux runner
             platform: linux
+          # Node.js 20.x builds
           - node: "20.x"
             arch: "x64"
             runner: windows-latest
@@ -33,6 +45,7 @@ jobs:
             arch: "x64"
             runner: ubuntu-latest
             platform: linux
+          # Node.js 22.x builds
           - node: "22.x"
             arch: "x64"
             runner: windows-latest
@@ -41,6 +54,7 @@ jobs:
             arch: "x64"
             runner: ubuntu-latest
             platform: linux
+          # Node.js 24.x builds
           - node: "24.x"
             arch: "x64"
             runner: windows-latest
@@ -50,25 +64,43 @@ jobs:
             runner: ubuntu-latest
             platform: linux
     steps:
+      # Step 1: Download the repository code to the runner
       - uses: actions/checkout@v4
+
+      # Step 2: Install Node.js with the specific version from matrix
+      # This ensures each job uses the correct Node.js version for building
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ matrix.node }}
+          node-version: ${{ matrix.node }} # Uses matrix value (18.x, 20.x, etc.)
+
+      # Step 3: Install Linux-specific build dependencies
+      # Only runs on Linux runners - Windows has these tools built-in
       - name: Install Linux build deps
-        if: ${{ matrix.platform == 'linux' }}
+        if: ${{ matrix.platform == 'linux' }} # Conditional execution
         run: |
           sudo apt-get update
           sudo apt-get install -y libcups2-dev build-essential python3
         shell: bash
+
+      # Step 4: Install all npm dependencies
+      # This installs both runtime dependencies and devDependencies needed for building
       - name: Install deps
-        run: npm ci
-      - name: Build native addon
-        run: npm run build
+        run: npm ci # Clean install - faster and more reliable than npm install
+
+      # Step 5: Build both TypeScript and native addon
+      # npm run build:all = npm run build:ts && npm run build
+      # This compiles TypeScript (src/js/*.ts → lib/js/*.js) AND compiles C++ native code
+      - name: Build TypeScript and native addon
+        run: npm run build:all
+      # Step 6a: Create prebuild for Windows (only runs on Windows runners)
+      # Prebuild creates a precompiled .node file that users can download
+      # instead of compiling the C++ source code themselves
       - name: Create prebuild artifact (Windows)
         if: ${{ matrix.platform == 'win32' }}
-        id: prebuild
+        id: prebuild # Gives this step an ID for potential reference
         env:
+          # Tell npm/node-gyp where to download Node.js headers for compilation
           npm_config_disturl: https://nodejs.org/dist
         run: |
           if (!(Test-Path prebuilds)) { New-Item -ItemType Directory -Path prebuilds | Out-Null }
@@ -76,10 +108,13 @@ jobs:
           Write-Host "Detected node runtime: $nodever"
           npx --no-install prebuild --strip --target $nodever --arch=${{ matrix.arch }} --platform=win32 --runtime=node --out prebuilds
           Write-Host "Created prebuilds:"; Get-ChildItem prebuilds | ForEach-Object { Write-Host $_.FullName }
+      # Step 6b: Create prebuild for Linux (only runs on Linux runners)
+      # Same process as Windows but uses bash shell and Unix commands
       - name: Create prebuild artifact (Linux)
         if: ${{ matrix.platform == 'linux' }}
         id: prebuild-linux
         env:
+          # Same environment variable as Windows - tells npm where to get Node.js headers
           npm_config_disturl: https://nodejs.org/dist
         run: |
           mkdir -p prebuilds
@@ -87,38 +122,65 @@ jobs:
           echo "Detected node runtime: $nodever"
           npx --no-install prebuild --strip --target $nodever --arch=${{ matrix.arch }} --platform=linux --runtime=node --out prebuilds
           echo "Created prebuilds:"; ls -la prebuilds
-        shell: bash
+        shell: bash # Explicitly use bash shell (important for cross-platform)
+      # Step 7: Upload the created prebuild as a GitHub Actions artifact
+      # This makes the .node file available to the publish job
       - name: Upload prebuild artifact
         uses: actions/upload-artifact@v4
         with:
+          # Unique name for each artifact includes Node version, architecture, and platform
+          # Example: "prebuilds-20.x-x64-win32"
           name: prebuilds-${{ matrix.node }}-${{ matrix.arch }}-${{ matrix.platform }}
-          path: prebuilds/*
+          path: prebuilds/* # Upload all files in the prebuilds directory
 
+  # Second job: Create GitHub release and publish package to npm
+  # This job waits for all prebuild jobs to complete, then publishes everything
   publish:
     name: Create release and publish
-    runs-on: ubuntu-latest
-    needs: build-prebuilds
+    runs-on: ubuntu-latest # Always use Ubuntu for publishing (consistent environment)
+    needs: build-prebuilds # Wait for all prebuild jobs to finish successfully
     steps:
+      # Step 1: Get the repository code (same as build job)
       - uses: actions/checkout@v4
+
+      # Step 2: Setup Node.js for publishing
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: "24"
-          registry-url: "https://registry.npmjs.org"
+          node-version: "24" # Use latest LTS Node.js for publishing
+          registry-url: "https://registry.npmjs.org" # Configure for npm registry publishing
+
+      # Step 3: Install dependencies without running scripts
+      # --ignore-scripts prevents install/postinstall scripts that might try to build
+      # We don't need to build here since we'll use the prebuilt binaries
       - name: Install deps
         run: npm ci --ignore-scripts
+
+      # Step 4: Download all prebuild artifacts from the previous jobs
+      # This gets all the .node files created by the 8 build jobs
       - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
-          path: ./prebuilds
+          path: ./prebuilds # Downloads to ./prebuilds/prebuilds-18.x-x64-win32/, etc.
+
+      # Step 5: Create a GitHub release with all the prebuild files
+      # Users can manually download these files if needed
       - name: Create or update GitHub Release
         uses: softprops/action-gh-release@v1
         with:
-          files: prebuilds/**/*
-          draft: false
-          prerelease: false
-          generate_release_notes: true
+          files: prebuilds/**/* # Include all prebuild files in the release
+          draft: false # Make it a public release immediately
+          prerelease: false # This is a stable release, not a pre-release
+          generate_release_notes: true # Auto-generate release notes from commits/PRs
         env:
+          # Use your custom GitHub token (RELEASE_TOKEN) for authentication
+          # This token needs "Contents: write" permission to create releases
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+
+      # Step 6: Publish the package to npm
+      # The prepublishOnly script in package.json will run automatically before this
+      # which compiles TypeScript (npm run build:ts)
       - name: Publish to npm
         run: npm publish
+        # No NODE_AUTH_TOKEN needed because you're using npm's trusted publishing
+        # The id-token: write permission allows GitHub to authenticate with npm directly
