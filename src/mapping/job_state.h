@@ -43,7 +43,7 @@ std::string mapJobState(uint32_t winStatus) {
     }
     
     if (winStatus & JOB_STATUS_PAUSED) {
-        return "pending"; // Paused jobs are effectively pending
+        return "paused";
     }
     
     // Default to pending for jobs in queue

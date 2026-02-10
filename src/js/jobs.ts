@@ -36,6 +36,7 @@ function normalizeJobState(rawState: any): JobStatus["state"] {
     return "completed";
   if (state.includes("CANCELLED") || state.includes("CANCELED"))
     return "canceled";
+  if (state.includes("PAUSED")) return "paused";
   if (state.includes("PENDING") || state.includes("WAITING")) return "pending";
   if (state.includes("ERROR") || state.includes("ABORTED")) return "error";
 
@@ -242,7 +243,7 @@ export const jobs = {
         );
       }
 
-      await binding.setJob(printer, jobId, "CANCEL");
+      await binding.setJob(printer, jobId, "cancel");
     } catch (error) {
       throw PrinterError.fromNativeError(error);
     }
@@ -263,9 +264,7 @@ export const jobs = {
           "INVALID_ARGUMENTS",
         );
       }
-
-      const nativeCommand = command.toUpperCase();
-      await binding.setJob(printer, jobId, nativeCommand);
+      await binding.setJob(printer, jobId, command);
     } catch (error) {
       throw PrinterError.fromNativeError(error);
     }

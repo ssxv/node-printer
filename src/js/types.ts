@@ -18,7 +18,7 @@ export interface PrinterCapabilities {
 
 export interface JobStatus {
   id: number;
-  state: 'pending' | 'printing' | 'completed' | 'canceled' | 'error';
+  state: 'pending' | 'printing' | 'completed' | 'canceled' | 'paused' | 'error';
   printer?: string;
   title?: string;
   user?: string;
