@@ -24,7 +24,7 @@
   },
   "keywords": [
     "printer",
-    "napi", 
+    "napi",
     "native",
     "windows",
     "printing",
@@ -64,7 +64,7 @@
   "homepage": "https://github.com/ssxv/node-printer#readme",
   "devDependencies": {
     "node-gyp": ">=12.2.0",
-    "prebuild": "^13.0.1", 
+    "prebuild": "^13.0.1",
     "tap": "^21.1.0",
     "typescript": "^5.0.0",
     "@types/node": "^18.0.0"

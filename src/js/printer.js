@@ -2,7 +2,7 @@
 // Provides only core printing functions with backward-compatible API (callbacks) and Promise-based usage.
 // For full functionality, use the modern JS-first API: require('@ssxv/node-printer')
 
-const binding = require("../../binding-legacy");
+const binding = require('../../binding-legacy');
 
 function toDateOrNull(n) {
   if (n === 0 || n == null) return null;
@@ -13,14 +13,14 @@ function normalizeJob(job) {
   return Object.assign({}, job, {
     creationTime: toDateOrNull(job.creationTime),
     processingTime: toDateOrNull(job.processingTime),
-    completedTime: toDateOrNull(job.completedTime),
+    completedTime: toDateOrNull(job.completedTime)
   });
 }
 
 // Expose internals for unit testing (non-production API)
 module.exports.__test__ = {
   toDateOrNull,
-  normalizeJob,
+  normalizeJob
 };
 
 function normalizePrinter(p) {
@@ -31,16 +31,12 @@ function normalizePrinter(p) {
 
 function promiseify(fn) {
   return function (...args) {
-    const maybeCb =
-      typeof args[args.length - 1] === "function" ? args.pop() : null;
+    const maybeCb = typeof args[args.length - 1] === 'function' ? args.pop() : null;
     try {
       const res = fn.apply(this, args);
-      const promise =
-        res && typeof res.then === "function" ? res : Promise.resolve(res);
+      const promise = res && typeof res.then === 'function' ? res : Promise.resolve(res);
       if (maybeCb) {
-        promise
-          .then((r) => process.nextTick(() => maybeCb(null, r)))
-          .catch((e) => process.nextTick(() => maybeCb(e)));
+        promise.then(r => process.nextTick(() => maybeCb(null, r))).catch(e => process.nextTick(() => maybeCb(e)));
         return promise;
       }
       return promise;
@@ -86,19 +82,19 @@ module.exports.getPrinter = promiseify(function getPrinter(name) {
 });
 
 function wirePromiseOrSync(result, success, error) {
-  if (result && typeof result.then === "function") {
+  if (result && typeof result.then === 'function') {
     result
       .then(function (r) {
-        if (typeof success === "function") success(r);
+        if (typeof success === 'function') success(r);
       })
       .catch(function (e) {
-        if (typeof error === "function") error(e);
+        if (typeof error === 'function') error(e);
         else throw e;
       });
     return true;
   }
   // synchronous
-  if (typeof success === "function") success(result);
+  if (typeof success === 'function') success(result);
   return false;
 }
 
@@ -113,27 +109,18 @@ module.exports.printDirect = function printDirect(
   parameters /* or (data, printer, type, docname, options, callback) */
 ) {
   // Handle both object and legacy parameter forms
-  if (
-    typeof parameters === "object" &&
-    !Buffer.isBuffer(parameters) &&
-    parameters !== null &&
-    arguments.length <= 2
-  ) {
+  if (typeof parameters === 'object' && !Buffer.isBuffer(parameters) && parameters !== null && arguments.length <= 2) {
     // Object form: printDirect({ data, printer, docname, type, options, success, error }) or printDirect(options, callback)
-    const { data, printer, docname, type, options, success, error } =
-      parameters;
-    const nodeCallback =
-      arguments.length === 2 && typeof arguments[1] === "function"
-        ? arguments[1]
-        : null;
+    const { data, printer, docname, type, options, success, error } = parameters;
+    const nodeCallback = arguments.length === 2 && typeof arguments[1] === 'function' ? arguments[1] : null;
 
     // Create inner function that can be promiseified
     const printDirectCore = function (data, printer, docname, type, options) {
       if (!binding.printDirect) {
-        throw new Error("Not supported");
+        throw new Error('Not supported');
       }
 
-      const normalizedType = (type || "RAW").toString().toUpperCase();
+      const normalizedType = (type || 'RAW').toString().toUpperCase();
       let finalPrinter = printer;
       if (!finalPrinter) {
         const defaultName = binding.getDefaultPrinterName && binding.getDefaultPrinterName();
@@ -142,15 +129,9 @@ module.exports.printDirect = function printDirect(
         }
         finalPrinter = defaultName;
       }
-      const finalDocname = docname || "node print job";
+      const finalDocname = docname || 'node print job';
 
-      return binding.printDirect(
-        data,
-        finalPrinter,
-        finalDocname,
-        normalizedType,
-        options || {}
-      );
+      return binding.printDirect(data, finalPrinter, finalDocname, normalizedType, options || {});
     };
 
     // If there's a Node.js-style callback, use promiseify
@@ -163,13 +144,13 @@ module.exports.printDirect = function printDirect(
     const wrappedFn = promiseify(printDirectCore);
     const promise = wrappedFn(data, printer, docname, type, options);
 
-    if (typeof success === "function" || typeof error === "function") {
+    if (typeof success === 'function' || typeof error === 'function') {
       promise
-        .then((r) => {
-          if (typeof success === "function") success(r);
+        .then(r => {
+          if (typeof success === 'function') success(r);
         })
-        .catch((e) => {
-          if (typeof error === "function") error(e);
+        .catch(e => {
+          if (typeof error === 'function') error(e);
         });
     }
 
@@ -178,10 +159,10 @@ module.exports.printDirect = function printDirect(
     // Legacy parameter form: printDirect(data, printer, type, docname, options, callback)
     const printDirectCore = function (data, printer, type, docname, options) {
       if (!binding.printDirect) {
-        throw new Error("Not supported");
+        throw new Error('Not supported');
       }
 
-      const normalizedType = (type || "RAW").toString().toUpperCase();
+      const normalizedType = (type || 'RAW').toString().toUpperCase();
       let finalPrinter = printer;
       if (!finalPrinter) {
         const defaultName = binding.getDefaultPrinterName && binding.getDefaultPrinterName();
@@ -190,15 +171,9 @@ module.exports.printDirect = function printDirect(
         }
         finalPrinter = defaultName;
       }
-      const finalDocname = docname || "node print job";
+      const finalDocname = docname || 'node print job';
 
-      return binding.printDirect(
-        data,
-        finalPrinter,
-        finalDocname,
-        normalizedType,
-        options || {}
-      );
+      return binding.printDirect(data, finalPrinter, finalDocname, normalizedType, options || {});
     };
 
     return promiseify(printDirectCore)(...arguments);
@@ -214,8 +189,8 @@ module.exports.printDirect = function printDirect(
  */
 module.exports.printFile = function printFile(parameters, cb) {
   // Accept both: printFile(params) and printFile(params, cb)
-  if (arguments.length < 1 || typeof parameters !== "object") {
-    throw new Error("must provide arguments object");
+  if (arguments.length < 1 || typeof parameters !== 'object') {
+    throw new Error('must provide arguments object');
   }
 
   const filename = parameters.filename || parameters;
@@ -228,7 +203,7 @@ module.exports.printFile = function printFile(parameters, cb) {
   // Create core function that can be promiseified
   const printFileCore = function (filename, docname, printer, options) {
     if (!filename) {
-      throw new Error("must provide at least a filename");
+      throw new Error('must provide at least a filename');
     }
 
     const finalDocname = docname || filename;
@@ -250,7 +225,7 @@ module.exports.printFile = function printFile(parameters, cb) {
     }
 
     if (!binding.printFile) {
-      throw new Error("Not supported");
+      throw new Error('Not supported');
     }
 
     return binding.printFile(filename, finalDocname, finalPrinter, options);
@@ -261,17 +236,13 @@ module.exports.printFile = function printFile(parameters, cb) {
   const promise = wrappedFn(filename, docname, printer, options, cb);
 
   // Handle legacy success/error callbacks if present (but no Node.js callback)
-  if (
-    (typeof legacySuccess === "function" ||
-      typeof legacyError === "function") &&
-    typeof cb !== "function"
-  ) {
+  if ((typeof legacySuccess === 'function' || typeof legacyError === 'function') && typeof cb !== 'function') {
     promise
-      .then((r) => {
-        if (typeof legacySuccess === "function") legacySuccess(r);
+      .then(r => {
+        if (typeof legacySuccess === 'function') legacySuccess(r);
       })
-      .catch((e) => {
-        if (typeof legacyError === "function") legacyError(e);
+      .catch(e => {
+        if (typeof legacyError === 'function') legacyError(e);
       });
   }
 

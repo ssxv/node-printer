@@ -18,7 +18,7 @@ try {
  */
 function normalizePrinterState(rawState: any): Printer['state'] {
   if (!rawState) return 'offline';
-  
+
   // Handle Windows status arrays
   if (Array.isArray(rawState)) {
     if (rawState.includes('PRINTING') || rawState.includes('PROCESSING')) return 'printing';
@@ -27,14 +27,14 @@ function normalizePrinterState(rawState: any): Printer['state'] {
     if (rawState.includes('OFFLINE') || rawState.includes('NOT-AVAILABLE')) return 'offline';
     return 'idle';
   }
-  
+
   // Handle string status
   const status = String(rawState).toUpperCase();
   if (status.includes('PRINTING') || status.includes('PROCESSING')) return 'printing';
   if (status.includes('PAUSED') || status.includes('STOPPED')) return 'stopped';
   if (status.includes('ERROR') || status.includes('JAM') || status.includes('TONER')) return 'error';
   if (status.includes('OFFLINE') || status.includes('AVAILABLE')) return 'offline';
-  
+
   return 'idle';
 }
 
@@ -56,12 +56,12 @@ function normalizePrinter(raw: any): Printer {
  */
 function normalizeCapabilities(raw: any): PrinterCapabilities {
   const formats: ('PDF' | 'TEXT' | 'RAW' | 'IMAGE')[] = ['RAW']; // Always support RAW
-  
+
   // Add other formats based on raw data
   if (raw.pdf || raw.PDF) formats.push('PDF');
   if (raw.text || raw.TEXT) formats.push('TEXT');
   if (raw.image || raw.IMAGE || raw.jpeg || raw.jpg) formats.push('IMAGE');
-  
+
   return {
     formats,
     paperSizes: raw.paperSizes || undefined,
@@ -105,7 +105,7 @@ export const printers = {
     try {
       const rawPrinter = await binding.getPrinter(name);
       const printer = normalizePrinter(rawPrinter);
-      
+
       // Try to get capabilities - non-critical, so don't fail if unavailable
       let capabilities: PrinterCapabilities | undefined;
       try {
@@ -113,7 +113,7 @@ export const printers = {
       } catch {
         // Capabilities optional - continue without them
       }
-      
+
       return { ...printer, capabilities };
     } catch (error) {
       throw PrinterError.fromNativeError(error);
@@ -127,7 +127,7 @@ export const printers = {
     try {
       // Get supported formats
       const formats = await binding.getSupportedPrintFormats();
-      
+
       // Get driver options for additional capabilities
       let driverOptions: any = {};
       try {
@@ -135,7 +135,7 @@ export const printers = {
       } catch {
         // Driver options might not be available on all platforms
       }
-      
+
       return normalizeCapabilities({ ...driverOptions, formats });
     } catch (error) {
       throw PrinterError.fromNativeError(error);

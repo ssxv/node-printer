@@ -16,11 +16,7 @@ export class PrinterError extends Error {
   public readonly code: PrinterErrorCode;
   public readonly originalError?: any;
 
-  constructor(
-    message: string,
-    code: PrinterErrorCode = 'UNKNOWN',
-    originalError?: any
-  ) {
+  constructor(message: string, code: PrinterErrorCode = 'UNKNOWN', originalError?: any) {
     super(message);
     this.name = 'PrinterError';
     this.code = code;
@@ -39,27 +35,27 @@ export class PrinterError extends Error {
 
     // Map common native error messages/codes to PrinterErrorCode
     const message = nativeError?.message || String(nativeError);
-    
+
     if (message.includes('printer') && message.includes('not found')) {
       return new PrinterError(message, 'PRINTER_NOT_FOUND', nativeError);
     }
-    
+
     if (message.includes('offline') || message.includes('not available')) {
       return new PrinterError(message, 'PRINTER_OFFLINE', nativeError);
     }
-    
+
     if (message.includes('access denied') || message.includes('permission')) {
       return new PrinterError(message, 'ACCESS_DENIED', nativeError);
     }
-    
+
     if (message.includes('job') && message.includes('not found')) {
       return new PrinterError(message, 'JOB_NOT_FOUND', nativeError);
     }
-    
+
     if (message.includes('driver')) {
       return new PrinterError(message, 'DRIVER_ERROR', nativeError);
     }
-    
+
     if (message.includes('file') && message.includes('not found')) {
       return new PrinterError(message, 'FILE_NOT_FOUND', nativeError);
     }

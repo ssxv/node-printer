@@ -16,7 +16,7 @@ export interface PrinterCapabilities {
   color?: boolean;
 }
 
-export interface JobStatus {
+export interface PrintJob {
   id: number;
   state: 'pending' | 'printing' | 'completed' | 'canceled' | 'paused' | 'error';
   printer?: string;
@@ -68,7 +68,7 @@ export type PrinterErrorCode =
   | 'UNKNOWN';
 export interface PrinterDetails extends Printer {
   status?: string[];
-  jobs?: JobStatus[];
+  jobs?: PrintJob[];
   options?: Record<string, any>;
 }
 

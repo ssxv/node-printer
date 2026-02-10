@@ -15,7 +15,7 @@ import { PrinterError } from './errors';
 export type {
   Printer,
   PrinterCapabilities,
-  JobStatus,
+  PrintJob,
   PrintFileOptions,
   PrintRawOptions,
   PrintOptions,
