@@ -19,7 +19,6 @@
     "build": "node-gyp rebuild",
     "build:ts": "tsc",
     "build:all": "npm run build:ts && npm run build",
-    "test": "tap --disable-coverage test/unit/*.test.js",
     "prepublishOnly": "npm run build:ts"
   },
   "keywords": [
@@ -63,10 +62,9 @@
   },
   "homepage": "https://github.com/ssxv/node-printer#readme",
   "devDependencies": {
+    "@types/node": "^18.0.0",
     "node-gyp": ">=12.2.0",
     "prebuild": "^13.0.1",
-    "tap": "^21.1.0",
-    "typescript": "^5.0.0",
-    "@types/node": "^18.0.0"
+    "typescript": "^5.0.0"
   }
 }
