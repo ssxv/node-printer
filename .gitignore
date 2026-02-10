@@ -5,6 +5,7 @@ node_modules/
 build/
 build/Release/
 dist/
+lib/
 
 # Prebuild/prebuilt binary caches
 prebuilds/
@@ -54,3 +55,11 @@ coverage/
 # npm package lock (optional - keep if you want reproducible installs)
 # package-lock.json
 .tap/
+
+# Playground artifacts
+playground/node_modules/
+playground/package-lock.json
+playground/test-output/
+playground/*.pdf
+playground/*.txt
+playground/temp-*

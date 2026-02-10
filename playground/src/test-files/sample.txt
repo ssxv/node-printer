@@ -1,0 +1,14 @@
+This is a sample text file for testing the @ssxv/node-printer library.
+
+It contains multiple lines of text to test:
+- Basic text printing
+- Line breaks and formatting
+- Special characters: !@#$%^&*()
+- Unicode characters: ™ © ® € £ ¥
+- Numbers: 1234567890
+
+Generated at: {{timestamp}}
+
+This file can be printed using the printFile function or read and printed as raw data.
+
+End of sample file.
