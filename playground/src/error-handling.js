@@ -41,7 +41,7 @@ async function testErrorHandling() {
   try {
     const { printers, jobs } = require('@ssxv/node-printer');
     const printerList = await printers.list();
-    
+
     if (printerList.length > 0) {
       await jobs.printRaw({
         data: { invalid: 'object' }, // Should be Buffer or string
@@ -71,7 +71,7 @@ async function testErrorHandling() {
   try {
     const { PrinterError } = require('@ssxv/node-printer');
     console.log(`PrinterError available: ${typeof PrinterError === 'function'}`);
-    
+
     // Test creating custom PrinterError
     const customError = new PrinterError('Test error', 'TEST_ERROR');
     console.log(`✅ Custom error created: ${customError.message} (code: ${customError.code})`);
@@ -84,10 +84,10 @@ async function testErrorHandling() {
   try {
     const { printers } = require('@ssxv/node-printer');
     const printerList = await printers.list();
-    
+
     if (printerList.length === 0) {
       console.log('✅ No printers found - library handles gracefully');
-      
+
       try {
         await printers.default();
         console.log('⚠️  Unexpected: Should have thrown error for no default printer');
@@ -105,7 +105,7 @@ async function testErrorHandling() {
   console.log('\n🔍 Test 7: Promise vs Callback API');
   try {
     const printer = require('@ssxv/node-printer/printer');
-    
+
     // Test Promise API
     try {
       await printer.getPrinters();
@@ -113,7 +113,7 @@ async function testErrorHandling() {
     } catch (error) {
       console.log(`⚠️  Promise API error: ${error.message}`);
     }
-    
+
     // Test Callback API
     printer.getPrinters((error, printers) => {
       if (error) {
@@ -122,7 +122,6 @@ async function testErrorHandling() {
         console.log('✅ Callback API works');
       }
     });
-    
   } catch (error) {
     console.error(`❌ API consistency test failed: ${error.message}`);
   }
