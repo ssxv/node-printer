@@ -1,33 +1,45 @@
 // Jobs module - JS-first cross-platform printing API
 // Abstracts away OS-specific job management (Winspool/CUPS)
 
-import { JobStatus, PrintFileOptions, PrintRawOptions, PrintJobResult } from './types';
-import { PrinterError } from './errors';
+import {
+  JobStatus,
+  PrintFileOptions,
+  PrintRawOptions,
+  PrintJobResult,
+} from "./types";
+import { PrinterError } from "./errors";
 
 // Dynamic binding loader - will be replaced with proper loader
 let binding: any;
 try {
   // For now, use the existing binding until we refactor the native layer
-  binding = require('../../binding');
+  binding = require("../../binding");
 } catch (error) {
-  throw new PrinterError('Failed to load native printer binding', 'DRIVER_ERROR', error);
+  throw new PrinterError(
+    "Failed to load native printer binding",
+    "DRIVER_ERROR",
+    error,
+  );
 }
 
 /**
  * Normalize job state from OS-specific values to standard states
  */
-function normalizeJobState(rawState: any): JobStatus['state'] {
-  if (!rawState) return 'error';
-  
+function normalizeJobState(rawState: any): JobStatus["state"] {
+  if (!rawState) return "error";
+
   const state = String(rawState).toUpperCase();
-  
-  if (state.includes('PRINTING') || state.includes('PROCESSING')) return 'printing';
-  if (state.includes('COMPLETED') || state.includes('PRINTED')) return 'completed';
-  if (state.includes('CANCELLED') || state.includes('CANCELED')) return 'canceled';
-  if (state.includes('PENDING') || state.includes('WAITING')) return 'pending';
-  if (state.includes('ERROR') || state.includes('ABORTED')) return 'error';
-  
-  return 'pending'; // Default to pending for unknown states
+
+  if (state.includes("PRINTING") || state.includes("PROCESSING"))
+    return "printing";
+  if (state.includes("COMPLETED") || state.includes("PRINTED"))
+    return "completed";
+  if (state.includes("CANCELLED") || state.includes("CANCELED"))
+    return "canceled";
+  if (state.includes("PENDING") || state.includes("WAITING")) return "pending";
+  if (state.includes("ERROR") || state.includes("ABORTED")) return "error";
+
+  return "pending"; // Default to pending for unknown states
 }
 
 /**
@@ -40,11 +52,17 @@ function normalizeJobStatus(raw: any): JobStatus {
     printer: raw.printer || raw.printerName || undefined,
     title: raw.title || raw.name || raw.docname || undefined,
     user: raw.user || raw.username || undefined,
-    creationTime: raw.creationTime ? new Date(raw.creationTime * 1000) : undefined,
-    processingTime: raw.processingTime ? new Date(raw.processingTime * 1000) : undefined,
-    completedTime: raw.completedTime ? new Date(raw.completedTime * 1000) : undefined,
+    creationTime: raw.creationTime
+      ? new Date(raw.creationTime * 1000)
+      : undefined,
+    processingTime: raw.processingTime
+      ? new Date(raw.processingTime * 1000)
+      : undefined,
+    completedTime: raw.completedTime
+      ? new Date(raw.completedTime * 1000)
+      : undefined,
     pages: raw.pages || raw.totalPages || undefined,
-    size: raw.size || raw.dataSize || undefined
+    size: raw.size || raw.dataSize || undefined,
   };
 }
 
@@ -53,31 +71,34 @@ function normalizeJobStatus(raw: any): JobStatus {
  */
 function validateAndNormalizePrintOptions(options: any = {}): any {
   const normalized: any = {};
-  
+
   if (options.copies && options.copies > 0) {
     normalized.copies = Math.floor(options.copies);
   }
-  
-  if (typeof options.duplex === 'boolean') {
+
+  if (typeof options.duplex === "boolean") {
     normalized.duplex = options.duplex;
   }
-  
-  if (typeof options.color === 'boolean') {
+
+  if (typeof options.color === "boolean") {
     normalized.color = options.color;
   }
-  
-  if (options.paperSize && typeof options.paperSize === 'string') {
+
+  if (options.paperSize && typeof options.paperSize === "string") {
     normalized.paperSize = options.paperSize;
   }
-  
-  if (options.orientation === 'portrait' || options.orientation === 'landscape') {
+
+  if (
+    options.orientation === "portrait" ||
+    options.orientation === "landscape"
+  ) {
     normalized.orientation = options.orientation;
   }
-  
-  if (options.jobName && typeof options.jobName === 'string') {
+
+  if (options.jobName && typeof options.jobName === "string") {
     normalized.docname = options.jobName;
   }
-  
+
   return normalized;
 }
 
@@ -88,21 +109,26 @@ export const jobs = {
   async printFile(options: PrintFileOptions): Promise<PrintJobResult> {
     try {
       if (!options.printer || !options.file) {
-        throw new PrinterError('Printer name and file path are required', 'INVALID_ARGUMENTS');
+        throw new PrinterError(
+          "Printer name and file path are required",
+          "INVALID_ARGUMENTS",
+        );
       }
-      
-      const normalizedOptions = validateAndNormalizePrintOptions(options.options);
-      
+
+      const normalizedOptions = validateAndNormalizePrintOptions(
+        options.options,
+      );
+
       const jobId = await binding.printFile(
         options.file,
         options.printer,
-        normalizedOptions
+        normalizedOptions,
       );
-      
+
       if (!jobId || jobId <= 0) {
-        throw new PrinterError('Failed to queue print job', 'UNKNOWN');
+        throw new PrinterError("Failed to queue print job", "UNKNOWN");
       }
-      
+
       return { id: jobId, printer: options.printer };
     } catch (error) {
       throw PrinterError.fromNativeError(error);
@@ -115,26 +141,31 @@ export const jobs = {
   async printRaw(options: PrintRawOptions): Promise<PrintJobResult> {
     try {
       if (!options.printer || !options.data) {
-        throw new PrinterError('Printer name and data are required', 'INVALID_ARGUMENTS');
+        throw new PrinterError(
+          "Printer name and data are required",
+          "INVALID_ARGUMENTS",
+        );
       }
-      
+
       if (!Buffer.isBuffer(options.data)) {
-        throw new PrinterError('Data must be a Buffer', 'INVALID_ARGUMENTS');
+        throw new PrinterError("Data must be a Buffer", "INVALID_ARGUMENTS");
       }
-      
-      const normalizedOptions = validateAndNormalizePrintOptions(options.options);
-      
+
+      const normalizedOptions = validateAndNormalizePrintOptions(
+        options.options,
+      );
+
       const jobId = await binding.printDirect(
         options.data,
         options.printer,
-        options.format || 'RAW',
-        normalizedOptions
+        options.format || "RAW",
+        normalizedOptions,
       );
-      
+
       if (!jobId || jobId <= 0) {
-        throw new PrinterError('Failed to queue print job', 'UNKNOWN');
+        throw new PrinterError("Failed to queue print job", "UNKNOWN");
       }
-      
+
       return { id: jobId, printer: options.printer };
     } catch (error) {
       throw PrinterError.fromNativeError(error);
@@ -147,9 +178,12 @@ export const jobs = {
   async get(printer: string, jobId: number): Promise<JobStatus> {
     try {
       if (!printer || jobId <= 0) {
-        throw new PrinterError('Valid printer name and job ID are required', 'INVALID_ARGUMENTS');
+        throw new PrinterError(
+          "Valid printer name and job ID are required",
+          "INVALID_ARGUMENTS",
+        );
       }
-      
+
       const rawJob = await binding.getJob(printer, jobId);
       return normalizeJobStatus(rawJob);
     } catch (error) {
@@ -163,17 +197,33 @@ export const jobs = {
   async list(options?: { printer?: string }): Promise<JobStatus[]> {
     try {
       let rawJobs: any[];
-      
+
       if (options?.printer) {
-        // Get jobs for specific printer
-        const printer = await binding.getPrinter(options.printer);
-        rawJobs = printer.jobs || [];
+        // Get jobs for specific printer using dedicated getJobs method
+        rawJobs = await binding.getJobs(options.printer);
       } else {
         // Get jobs for all printers
         const printers = await binding.getPrinters();
-        rawJobs = printers.flatMap((p: any) => p.jobs || []);
+        const allJobs: any[] = [];
+
+        // Get jobs for each printer individually
+        for (const printer of printers) {
+          try {
+            const printerJobs = await binding.getJobs(
+              printer.name || printer.printer,
+            );
+            allJobs.push(...printerJobs);
+          } catch (error) {
+            // Continue with other printers if one fails
+            console.warn(
+              `Failed to get jobs for printer ${printer.name || printer.printer}:`,
+              error,
+            );
+          }
+        }
+        rawJobs = allJobs;
       }
-      
+
       return rawJobs.map(normalizeJobStatus);
     } catch (error) {
       throw PrinterError.fromNativeError(error);
@@ -186,10 +236,13 @@ export const jobs = {
   async cancel(printer: string, jobId: number): Promise<void> {
     try {
       if (!printer || jobId <= 0) {
-        throw new PrinterError('Valid printer name and job ID are required', 'INVALID_ARGUMENTS');
+        throw new PrinterError(
+          "Valid printer name and job ID are required",
+          "INVALID_ARGUMENTS",
+        );
       }
-      
-      await binding.setJob(printer, jobId, 'CANCEL');
+
+      await binding.setJob(printer, jobId, "CANCEL");
     } catch (error) {
       throw PrinterError.fromNativeError(error);
     }
@@ -198,16 +251,23 @@ export const jobs = {
   /**
    * Set native job command (escape hatch for platform-specific operations)
    */
-  async setNative(printer: string, jobId: number, command: 'pause' | 'resume' | 'cancel'): Promise<void> {
+  async setNative(
+    printer: string,
+    jobId: number,
+    command: "pause" | "resume" | "cancel",
+  ): Promise<void> {
     try {
       if (!printer || jobId <= 0) {
-        throw new PrinterError('Valid printer name and job ID are required', 'INVALID_ARGUMENTS');
+        throw new PrinterError(
+          "Valid printer name and job ID are required",
+          "INVALID_ARGUMENTS",
+        );
       }
-      
+
       const nativeCommand = command.toUpperCase();
       await binding.setJob(printer, jobId, nativeCommand);
     } catch (error) {
       throw PrinterError.fromNativeError(error);
     }
-  }
+  },
 };
