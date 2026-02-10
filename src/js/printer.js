@@ -81,23 +81,6 @@ module.exports.getPrinter = promiseify(function getPrinter(name) {
   return pr && Array.isArray(pr.jobs) ? normalizePrinter(pr) : pr;
 });
 
-function wirePromiseOrSync(result, success, error) {
-  if (result && typeof result.then === 'function') {
-    result
-      .then(function (r) {
-        if (typeof success === 'function') success(r);
-      })
-      .catch(function (e) {
-        if (typeof error === 'function') error(e);
-        else throw e;
-      });
-    return true;
-  }
-  // synchronous
-  if (typeof success === 'function') success(result);
-  return false;
-}
-
 /**
  * Print raw data directly to printer
  * @deprecated Use require('@ssxv/node-printer').jobs.printRaw() instead
