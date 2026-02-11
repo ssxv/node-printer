@@ -1,4 +1,3 @@
-// Jobs module - JS-first cross-platform printing API
 // Abstracts away OS-specific job management (Winspool/CUPS)
 
 import { PrintJob, PrintFileOptions, PrintRawOptions, PrintJobResult } from './types';

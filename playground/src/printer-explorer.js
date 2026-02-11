@@ -4,7 +4,6 @@
  * Run with: node printer-explorer.js
  */
 const { printers } = require('@ssxv/node-printer');
-const legacy = require('@ssxv/node-printer/printer');
 
 const printerName = 'Satyendra-local-receipt-printer';
 
@@ -27,14 +26,6 @@ async function explorePrinters() {
 
   console.log('\n📄 Test 5: Printer driverOptions');
   console.log(await printers.driverOptions(printerName));
-
-  console.log('\n\n🔍 Exploring printers (legacy)...\n');
-
-  console.log('\n📄 Test 6: List all printers (legacy)');
-  console.log(await legacy.getPrinters());
-
-  console.log('\n📄 Test 7: Get printer (legacy)');
-  console.log(await legacy.getPrinter(printerName));
 }
 
 if (require.main === module) {

@@ -1,4 +1,3 @@
-// Printers module - JS-first cross-platform API
 // Abstracts away OS-specific concepts (Winspool/CUPS)
 
 import { Printer, PrinterCapabilities, PrinterDriverOptions } from './types';

@@ -77,32 +77,6 @@ const job = await jobs.printRaw({
 });
 ```
 
-### Legacy API (Backward Compatible)
-
-```javascript
-const printer = require('@ssxv/node-printer/printer');
-
-// List all printers
-const printers = await printer.getPrinters();
-console.log(printers);
-
-// Get specific printer
-const myPrinter = await printer.getPrinter('MyPrinter');
-
-// Print a file
-await printer.printFile({
-  filename: 'document.pdf',
-  printer: 'MyPrinter'
-});
-
-// Direct raw printing
-await printer.printDirect({
-  data: Buffer.from('Hello World'),
-  printer: 'MyPrinter',
-  type: 'RAW'
-});
-```
-
 ## API Overview
 
 ### Printers

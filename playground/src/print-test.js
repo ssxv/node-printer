@@ -9,8 +9,9 @@ const path = require('path');
 console.log('=== Print Test ===\n');
 
 const { jobs } = require('@ssxv/node-printer');
-const legacy = require('@ssxv/node-printer/printer');
-const testFile = path.join(__dirname, 'test-files', 'sample.txt');
+const sampleTxtFile = path.join(__dirname, 'test-files', 'sample.txt');
+const samplePdfFile = path.join(__dirname, 'test-files', 'sample.pdf');
+const sampleImageFile = path.join(__dirname, 'test-files', 'sample.jpg');
 
 // Create test content
 const testContent = `Hello from ssxv/node-printer playground!
@@ -38,37 +39,37 @@ async function testPrinting() {
     console.error('❌ Modern API print failed:', error.message);
   }
 
-  console.log('\n📄 Test 2: Print file');
+  console.log('\n📄 Test 2: Print text file');
   try {
     const job = await jobs.printFile({
       printer: printerName,
-      file: testFile
+      file: sampleTxtFile
     });
     console.log(`✅ Print job submitted successfully! Job info:`, job);
   } catch (error) {
     console.error('❌ Modern API print failed:', error.message);
   }
 
-  console.log('\n📄 Test 3: Print direct text raw (legacy)');
+  console.log('\n📄 Test 3: Print Pdf file');
   try {
-    const job = await legacy.printDirect({
+    const job = await jobs.printFile({
       printer: printerName,
-      data: testContent
+      file: samplePdfFile
     });
-    console.log(`✅ Legacy print job submitted successfully!`, job);
+    console.log(`✅ Print job submitted successfully! Job info:`, job);
   } catch (error) {
-    console.error('❌ Legacy API print failed:', error.message);
+    console.error('❌ Modern API print failed:', error.message);
   }
 
-  console.log('\n📄 Test 4: Print from file (legacy)');
+  console.log('\n📄 Test 4: Print image file');
   try {
-    const job = await legacy.printFile({
+    const job = await jobs.printFile({
       printer: printerName,
-      filename: testFile
+      file: sampleImageFile
     });
-    console.log(`✅ File print job submitted successfully!`, job);
+    console.log(`✅ Print job submitted successfully! Job info:`, job);
   } catch (error) {
-    console.error('❌ File print failed:', error.message);
+    console.error('❌ Modern API print failed:', error.message);
   }
 }
 

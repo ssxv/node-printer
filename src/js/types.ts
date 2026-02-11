@@ -1,5 +1,4 @@
 // TypeScript type definitions for @ssxv/node-printer
-// JS-first, cross-platform API types
 
 export interface Printer {
   name: string;
@@ -54,30 +53,6 @@ export interface PrintOptions {
 export interface PrintJobResult {
   id: number;
   printer: string;
-}
-
-export type PrinterErrorCode =
-  | 'PRINTER_NOT_FOUND'
-  | 'PRINTER_OFFLINE'
-  | 'ACCESS_DENIED'
-  | 'JOB_NOT_FOUND'
-  | 'DRIVER_ERROR'
-  | 'INVALID_ARGUMENTS'
-  | 'FILE_NOT_FOUND'
-  | 'UNSUPPORTED_FORMAT'
-  | 'UNKNOWN';
-export interface PrinterDetails extends Printer {
-  status?: string[];
-  jobs?: PrintJob[];
-  options?: Record<string, any>;
-}
-
-export interface PrintDirectOptions {
-  data: string | Buffer;
-  printer: string;
-  type?: string;
-  docname?: string;
-  options?: Record<string, string>;
 }
 
 export interface PrinterDriverOptions {

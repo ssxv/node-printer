@@ -8,10 +8,6 @@
       "import": "./lib/js/index.js",
       "require": "./lib/js/index.js",
       "types": "./lib/js/types.d.ts"
-    },
-    "./printer": {
-      "require": "./src/js/printer.js",
-      "types": "./types/index.d.ts"
     }
   },
   "scripts": {
@@ -37,13 +33,8 @@
     "node": ">=18"
   },
   "files": [
-    "printer.js",
-    "index.js",
     "lib/",
-    "binding.gyp",
-    "src/",
-    "types/index.d.ts",
-    "examples/"
+    "binding.gyp"
   ],
   "dependencies": {
     "node-addon-api": "^5.0.0",
