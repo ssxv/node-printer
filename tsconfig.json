@@ -34,7 +34,6 @@
     "build",
     "lib",
     "test",
-    "examples",
     "src/native",
     "src/mapping",
     "src/*.cc"
