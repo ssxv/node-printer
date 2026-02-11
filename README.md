@@ -4,24 +4,10 @@
 
 Cross-platform printing addon that handles the OS-specific complexity for you. Print PDFs, text files, and raw data to any system printer with a simple JavaScript API.
 
-## What is this?
-
-A Node.js addon that provides:
-
 - **Cross-platform printing**: Works on Windows (Winspool) and Linux (CUPS)
 - **JS-first API**: Hide OS printing complexity behind clean JavaScript functions
 - **File and raw printing**: Handle documents (PDFs, text) and direct printer control (receipts, labels)
 - **Async job management**: Submit, monitor, and cancel print jobs
-
-## Why use this library?
-
-Cross-platform printing in Node.js is notoriously difficult:
-
-- **Existing solutions are incomplete**: Most libraries only work on Windows or are abandoned
-- **OS printing APIs are complex**: Different systems, different APIs, different quirks
-- **Production requirements**: You need reliable printing that works in headless servers and kiosks
-
-This library solves those problems by providing a unified JavaScript interface backed by native Windows and Linux implementations.
 
 ## Installation
 
@@ -30,6 +16,7 @@ npm install @ssxv/node-printer
 ```
 
 **Requirements:**
+
 - Node.js 18.x, 20.x, 22.x, or 24.x
 - Windows: Works out of the box
 - Linux: Requires CUPS (`sudo apt-get install libcups2-dev` for building from source)
@@ -60,7 +47,7 @@ const { jobs } = require('@ssxv/node-printer');
 // Submit print job
 const job = await jobs.printFile({
   printer: 'HP LaserJet Pro',
-  file: './sample.pdf',
+  file: './sample.pdf'
 });
 console.log('Job submitted:', job.id);
 
@@ -76,18 +63,22 @@ const { jobs } = require('@ssxv/node-printer');
 
 // ESC/POS commands for receipt printer
 const receiptData = Buffer.from([
-  0x1B, 0x40,           // Initialize printer
+  0x1b,
+  0x40, // Initialize printer
   ...Buffer.from('RECEIPT\n'),
-  0x1B, 0x64, 0x02      // Cut paper
+  0x1b,
+  0x64,
+  0x02 // Cut paper
 ]);
 
 const job = await jobs.printRaw({
   printer: 'EPSON-TM88V',
-  data: receiptData,
+  data: receiptData
 });
 ```
 
 ### Legacy API (Backward Compatible)
+
 ```javascript
 const printer = require('@ssxv/node-printer/printer');
 
@@ -136,6 +127,7 @@ await printer.printDirect({
 **Job submission ≠ job completion**: `printFile` and `printRaw` return immediately after submitting the job to the system print spooler. The actual printing happens asynchronously. Use `jobs.get()` to monitor job progress.
 
 **Choose the right function**:
+
 - Use `printFile` for documents (PDFs, text files, images)
 - Use `printRaw` for direct printer control (receipt printers, label printers, ESC/POS commands)
 
@@ -154,6 +146,7 @@ npm run build
 ```
 
 **Build requirements:**
+
 - Windows: Visual Studio Build Tools + Python
 - Linux: `libcups2-dev build-essential python3`
 
