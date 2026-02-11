@@ -5,18 +5,18 @@
 // 3. If still not found, try to fallback to `node-gyp rebuild` (requires build toolchain)
 // 4. Export whatever native binding we obtain (or throw an informative error)
 
-const path = require('path');
-const fs = require('fs');
+import * as path from 'path';
+import * as fs from 'fs';
 
-function tryRequireBuilt() {
-  const builtPath = path.join(__dirname, 'build', 'Release', 'node_printer.node');
+function tryRequireBuilt(): any {
+  const builtPath = path.join(__dirname, '..', '..', 'build', 'Release', 'node_printer.node');
   if (fs.existsSync(builtPath)) {
     return require(builtPath);
   }
   return null;
 }
 
-function tryPrebuildInstall() {
+function tryPrebuildInstall(): any {
   try {
     // prebuild-install will attempt to download a matching prebuilt binary into the package
     // and then we can require the same path as above.
@@ -32,7 +32,7 @@ function tryPrebuildInstall() {
   return null;
 }
 
-function tryNodeGypRebuild() {
+function tryNodeGypRebuild(): any {
   try {
     // Attempt an in-process rebuild via node-gyp. This is best-effort and requires a native toolchain.
     // Use child_process.spawnSync to run `node-gyp rebuild`.
@@ -42,7 +42,7 @@ function tryNodeGypRebuild() {
       [require.resolve('node-gyp/bin/node-gyp'), 'rebuild', '--target=node_printer'],
       {
         stdio: 'inherit',
-        cwd: __dirname
+        cwd: path.join(__dirname, '..', '..')
       }
     );
     if (res.status === 0) {
@@ -54,7 +54,7 @@ function tryNodeGypRebuild() {
   return null;
 }
 
-function loadBinding() {
+function loadBinding(): any {
   // 1. local build
   let binding = tryRequireBuilt();
   if (binding) return binding;
@@ -73,4 +73,4 @@ function loadBinding() {
   );
 }
 
-module.exports = loadBinding();
+export = loadBinding();

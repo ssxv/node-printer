@@ -7,7 +7,7 @@ import { PrinterError } from './errors';
 let binding: any;
 try {
   // For now, use the existing binding until we refactor the native layer
-  binding = require('../../binding');
+  binding = require('./binding');
 } catch (error) {
   throw new PrinterError('Failed to load native printer binding', 'DRIVER_ERROR', error);
 }

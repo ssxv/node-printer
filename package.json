@@ -34,6 +34,8 @@
   },
   "files": [
     "lib/",
+    "src/native/",
+    "src/mapping/",
     "binding.gyp"
   ],
   "dependencies": {
