@@ -55,6 +55,14 @@ export interface PrintJobResult {
   printer: string;
 }
 
+export interface PrintSocketOptions {
+  host: string;
+  port?: number;
+  data: Buffer;
+  timeout?: number;
+  retries?: number;
+}
+
 export interface PrinterDriverOptions {
   [key: string]: any;
 }

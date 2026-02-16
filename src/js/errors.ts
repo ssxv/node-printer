@@ -10,6 +10,11 @@ export type PrinterErrorCode =
   | 'INVALID_ARGUMENTS'
   | 'FILE_NOT_FOUND'
   | 'UNSUPPORTED_FORMAT'
+  | 'NETWORK_ERROR'
+  | 'CONNECTION_REFUSED'
+  | 'HOST_UNREACHABLE'
+  | 'HOST_NOT_FOUND'
+  | 'TIMEOUT'
   | 'UNKNOWN';
 
 export class PrinterError extends Error {

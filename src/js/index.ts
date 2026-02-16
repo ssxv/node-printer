@@ -2,10 +2,11 @@
 
 import { printers } from './printers';
 import { jobs } from './jobs';
+import { network } from './network';
 import { PrinterError } from './errors';
 
 // Named exports
-export { printers, jobs, PrinterError };
+export { printers, jobs, network, PrinterError };
 
 // Re-export types for convenience
 export type {
@@ -14,6 +15,7 @@ export type {
   PrintJob,
   PrintFileOptions,
   PrintRawOptions,
+  PrintSocketOptions,
   PrintOptions,
   PrintJobResult,
   PrinterDriverOptions
@@ -23,5 +25,6 @@ export type {
 export default {
   printers,
   jobs,
+  network,
   PrinterError
 };
