@@ -77,6 +77,20 @@ const job = await jobs.printRaw({
 });
 ```
 
+### Network printing (direct TCP)
+
+```javascript
+const { network } = require('@ssxv/node-printer');
+
+// Send raw data directly to network printer (bypasses OS)
+await network.printSocket({
+  host: '192.168.1.50',
+  data: receiptData
+});
+```
+
+````
+
 ## API Overview
 
 ### Printers
@@ -95,6 +109,10 @@ const job = await jobs.printRaw({
 - `jobs.list(printer)` - List all jobs for a printer
 - `jobs.cancel(printer, jobId)` - Cancel a specific job
 - `jobs.setNative(printer, jobId, options)` - Set native print options
+
+### Network
+
+- `network.printSocket({ host, data, ...options })` - Direct TCP printing (bypasses OS, for POS printers)
 
 ## Important Notes
 
@@ -117,7 +135,7 @@ npm install
 
 # Build native addon
 npm run build
-```
+````
 
 **Build requirements:**
 
