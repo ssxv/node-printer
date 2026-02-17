@@ -89,8 +89,6 @@ await network.printSocket({
 });
 ```
 
-````
-
 ## API Overview
 
 ### Printers
@@ -135,7 +133,7 @@ npm install
 
 # Build native addon
 npm run build
-````
+```
 
 **Build requirements:**
 
